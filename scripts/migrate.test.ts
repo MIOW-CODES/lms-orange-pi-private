@@ -94,29 +94,34 @@ async function asRuntimeRole<T>(run: (client: PoolClient) => Promise<T>): Promis
 
 describe("native PostgreSQL migration runner", () => {
   it("applies the clean baseline, grants only runtime DML, rejects drift, and rolls back failures", async () => {
-    expect(migrations).toHaveLength(1);
-    expect(await applyMigrations(migrator, migrations)).toBe(1);
+    expect(migrations).toHaveLength(2);
+    expect(await applyMigrations(migrator, migrations)).toBe(2);
     expect(await applyMigrations(migrator, migrations)).toBe(0);
 
     const ledger = await migrator.query<{ count: string }>(
       "SELECT count(*)::text AS count FROM private.schema_migrations",
     );
-    expect(ledger.rows[0]?.count).toBe("1");
+    expect(ledger.rows[0]?.count).toBe("2");
     const schema = await migrator.query<{
       relation_count: number;
       profile_count: string;
       view_options: string[] | null;
+      has_legacy_role_view: boolean;
     }>(`
       SELECT (SELECT count(*)::integer
                 FROM pg_catalog.pg_class AS c
                 JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
                WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm')) AS relation_count,
              (SELECT count(*)::text FROM public.profiles) AS profile_count,
-             (SELECT reloptions FROM pg_catalog.pg_class WHERE oid = 'public.question_bank'::regclass) AS view_options
+             (SELECT reloptions FROM pg_catalog.pg_class WHERE oid = 'public.question_bank'::regclass) AS view_options,
+             EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = 'public' AND table_name = 'sessions'
+                        AND column_name = 'role_view') AS has_legacy_role_view
     `);
     expect(schema.rows[0]?.relation_count).toBe(34);
     expect(schema.rows[0]?.profile_count).toBe("0");
     expect(schema.rows[0]?.view_options).toContain("security_invoker=true");
+    expect(schema.rows[0]?.has_legacy_role_view).toBe(false);
     await migrator.query("CREATE TABLE public.future_grant_probe (id integer PRIMARY KEY)");
 
     await asRuntimeRole(async (client) => {
@@ -134,7 +139,7 @@ describe("native PostgreSQL migration runner", () => {
     await migrator.query("DROP TABLE public.future_grant_probe");
 
     const failed = migration(
-      "20261020000001",
+      "20261020100001",
       "rollback_probe",
       "CREATE TABLE public.migration_rollback_probe (id integer); SELECT 1 / 0;",
     );
@@ -147,10 +152,10 @@ describe("native PostgreSQL migration runner", () => {
         FROM private.schema_migrations
     `);
     expect(rolledBack.rows[0]?.relation).toBe(null);
-    expect(rolledBack.rows[0]?.count).toBe("1");
+    expect(rolledBack.rows[0]?.count).toBe("2");
 
     const retry = migration(
-      "20261020000001",
+      "20261020100001",
       "rollback_probe",
       "CREATE TABLE public.migration_rollback_probe (id integer);",
     );
@@ -160,7 +165,7 @@ describe("native PostgreSQL migration runner", () => {
       CREATE FUNCTION private.fail_test_migration_ledger_insert() RETURNS trigger
         LANGUAGE plpgsql AS $$
         BEGIN
-          IF NEW.migration_id = '20261020000002' THEN
+          IF NEW.migration_id = '20261020100002' THEN
             RAISE EXCEPTION 'injected migration-ledger failure';
           END IF;
           RETURN NEW;
@@ -171,7 +176,7 @@ describe("native PostgreSQL migration runner", () => {
         FOR EACH ROW EXECUTE FUNCTION private.fail_test_migration_ledger_insert();
     `);
     const ledgerFailure = migration(
-      "20261020000002",
+      "20261020100002",
       "ledger_rollback_probe",
       "CREATE TABLE public.ledger_rollback_probe (id integer);",
     );
@@ -184,7 +189,7 @@ describe("native PostgreSQL migration runner", () => {
         FROM private.schema_migrations
     `);
     expect(ledgerRollback.rows[0]?.relation).toBe(null);
-    expect(ledgerRollback.rows[0]?.count).toBe("2");
+    expect(ledgerRollback.rows[0]?.count).toBe("3");
     await migrator.query(`
       DROP TRIGGER fail_test_migration_ledger_insert ON private.schema_migrations;
       DROP FUNCTION private.fail_test_migration_ledger_insert();
@@ -201,20 +206,20 @@ describe("native PostgreSQL migration runner", () => {
       checksum: createHash("sha256").update(driftedSql).digest("hex"),
     };
     const blockedUpgrade = migration(
-      "20261020000003",
+      "20261020100003",
       "must_not_run_after_drift",
       "CREATE TABLE public.must_not_run_after_drift (id integer);",
     );
-    await expect(applyMigrations(migrator, [drifted, retry, blockedUpgrade])).rejects.toThrow(
-      "An applied migration differs from the checked-in migration",
-    );
+    await expect(
+      applyMigrations(migrator, [drifted, ...migrations.slice(1), retry, blockedUpgrade]),
+    ).rejects.toThrow("An applied migration differs from the checked-in migration");
     const notApplied = await migrator.query<{ relation: string | null }>(
       "SELECT to_regclass('public.must_not_run_after_drift')::text AS relation",
     );
     expect(notApplied.rows[0]?.relation).toBe(null);
 
     const laterApplied = migration(
-      "20261020000004",
+      "20261020100004",
       "late_applied_probe",
       "CREATE TABLE public.late_applied_probe (id integer);",
     );
@@ -223,7 +228,7 @@ describe("native PostgreSQL migration runner", () => {
       [laterApplied.id, laterApplied.fileName, laterApplied.checksum],
     );
     const earlyPending = migration(
-      "20261020000003",
+      "20261020100003",
       "must_not_run_before_checksum_preflight",
       "CREATE TABLE public.must_not_run_before_checksum_preflight (id integer);",
     );

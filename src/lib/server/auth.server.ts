@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // Auth guards — session resolution with role checks.
 import { db } from "@/integrations/db/client.server";
 import { unwrap } from "@/lib/server/utils.server";
@@ -14,6 +13,25 @@ export function resolveSessionToken(token: string): string {
   const resolved = token === COOKIE_SESSION_MARKER ? getCookie(SESSION_COOKIE_NAME) : token;
   if (!resolved) throw new Error("Unauthorized");
   return resolved;
+}
+
+/** Enforce the first-login credential replacement gate on a fresh profile. */
+export function enforcePinChangeGate<T extends { pin_must_change?: boolean }>(
+  profile: T,
+  allowTemporaryPin: boolean,
+): T {
+  if (profile.pin_must_change && !allowTemporaryPin)
+    throw new Error("Choose a new PIN before continuing.");
+  return profile;
+}
+
+/** Check authorization against the current database profile role. */
+export function enforceRole<T extends { role: string }>(
+  profile: T,
+  allowedRoles: readonly string[],
+): T {
+  if (!allowedRoles.includes(profile.role)) throw new Error("Forbidden");
+  return profile;
 }
 
 /** Verify the caller's signed token and confirm its JTI remains active. */
@@ -34,30 +52,25 @@ export async function requireSession(token: string, options: { allowTemporaryPin
   }
   const profile = await getProfileById(id);
   if (!profile) throw new Error("Unauthorized");
-  if (profile.pin_must_change && !options.allowTemporaryPin)
-    throw new Error("Choose a new PIN before continuing.");
-  return profile;
+  return enforcePinChangeGate(profile, options.allowTemporaryPin === true);
 }
 
 /** Caller must be a teacher or admin. */
 export async function requireStaff(token: string) {
   const profile = await requireSession(token);
-  if (profile.role === "student") throw new Error("Forbidden");
-  return profile;
+  return enforceRole(profile, ["teacher", "admin"]);
 }
 
 /** Caller must be an admin. */
 export async function requireAdmin(token: string) {
   const profile = await requireSession(token);
-  if (profile.role !== "admin") throw new Error("Forbidden");
-  return profile;
+  return enforceRole(profile, ["admin"]);
 }
 
 /** Caller must be a teacher. Students and administrators are rejected. */
 export async function requireTeacher(token: string) {
   const profile = await requireSession(token);
-  if (profile.role !== "teacher") throw new Error("Forbidden");
-  return profile;
+  return enforceRole(profile, ["teacher"]);
 }
 
 /** Caller must be the given student, or staff. */
