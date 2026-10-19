@@ -1,0 +1,68 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+# Local deepwork/orchestrator scratch state (kept out of version control).
+.slim/deepwork/
+package-lock.json
+dist
+dist-ssr
+.output
+.vinxi
+.tanstack/**
+.nitro
+*.local
+
+# Wrangler / Cloudflare
+.wrangler/
+.dev.vars
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Generated env (regenerated per environment; never commit)
+.env
+.env.*
+!.env.example
+
+# TanStack Router auto-generated route tree
+routeTree.gen.ts
+# Playwright
+/playwright-report
+/test-results
+/playwright/.cache
+# Local Postgres storage (avatars, course-materials)
+storage/
+pgdata/
+# Hermes
+.hermes/
+
+# Supabase CLI scratch state
+supabase/.temp/
+
+# Heap snapshots
+*.heapsnapshot
+.vercel
+.env*
+.pglite-data/
+
+# Development artifacts and private reference worksheets are not deployment inputs.
+.git/
+.agents/
+.codex/
+tests/
+docs/

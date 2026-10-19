@@ -1,0 +1,70 @@
+name: Orange Pi branch tests
+
+on:
+  push:
+    branches:
+      - codex/orange-pi-local-postgres
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - "db/**"
+      - "package.json"
+      - "bun.lock"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "Dockerfile"
+      - "docker-compose.pgtest.yml"
+      - ".prettierrc"
+      - "eslint.config.js"
+      - ".github/workflows/orange-pi-tests.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orange-pi-tests-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.ref == 'refs/heads/codex/orange-pi-local-postgres'
+    runs-on:
+      group: orange-pi-branch-tests
+      labels: orange-pi-tests
+    timeout-minutes: 90
+    steps:
+      - name: Check out this commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Verify isolated ARM64 test runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "aarch64"
+          docker info --format '{{json .SecurityOptions}}' | grep -q rootless
+          docker compose version >/dev/null
+          bun --version
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Run unit tests
+        run: bun run test:unit
+
+      - name: Run migration tests
+        run: bun run test:migrations
+
+      - name: Run isolated PostgreSQL 16 integration tests
+        run: bun run test:integration
+
+      - name: Build production bundle
+        run: bun run build

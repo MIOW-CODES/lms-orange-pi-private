@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 16mm 16mm;
+    @bottom-center {
+      content: "IT 10 — Assessment 2: Reading Resistor Values & Color Codes   |   Page " counter(page) " of " counter(pages);
+      font-family: "DejaVu Sans", sans-serif;
+      font-size: 7.5pt;
+      color: #6b7280;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "DejaVu Sans", "Liberation Sans", sans-serif;
+    color: #1f2937;
+    font-size: 10pt;
+    line-height: 1.45;
+    margin: 0;
+  }
+  h1 { font-size: 15pt; margin: 0 0 2px 0; color: #b45309; letter-spacing: .2px; }
+  h2 {
+    font-size: 11.5pt;
+    margin: 16px 0 6px 0;
+    padding: 4px 8px;
+    background: #b45309;
+    color: #fff;
+    border-radius: 4px;
+  }
+  .subhead { color: #4b5563; font-size: 9pt; margin: 0 0 10px 0; }
+  .meta { width: 100%; border-collapse: collapse; margin: 8px 0 12px 0; font-size: 9pt; }
+  .meta td { border: 1px solid #d1d5db; padding: 5px 8px; }
+  .meta td.label { background: #fef3c7; font-weight: bold; width: 22%; color: #92400e; }
+  table.tos { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 6px 0 12px 0; }
+  table.tos th {
+    background: #92400e; color: #fff; padding: 6px 5px;
+    border: 1px solid #92400e; text-align: center;
+  }
+  table.tos td { border: 1px solid #fcd34d; padding: 5px 5px; text-align: center; vertical-align: top; }
+  table.tos td.l { text-align: left; }
+  table.tos tr.total td { background: #fef3c7; font-weight: bold; color: #92400e; }
+  .note {
+    background: #f9fafb; border-left: 3px solid #f59e0b; padding: 6px 10px;
+    font-size: 8.5pt; color: #4b5563; margin: 8px 0;
+  }
+  ol.items { margin: 4px 0 0 0; padding-left: 20px; }
+  ol.items > li { margin-bottom: 11px; padding-left: 4px; font-size: 10pt; }
+  ul.opts { margin: 5px 0 0 0; padding-left: 18px; list-style: none; }
+  ul.opts li { margin: 2px 0; font-size: 9.5pt; }
+  .opt { display: inline-block; min-width: 16px; }
+  .grid2 { column-count: 2; column-gap: 18px; }
+  table.key {
+    width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 6px 0;
+  }
+  table.key th {
+    background: #0f766e; color: #fff; padding: 5px; border: 1px solid #0f766e; text-align: center;
+  }
+  table.key td { border: 1px solid #99f6e4; padding: 5px; text-align: center; vertical-align: top; }
+  table.key td.l { text-align: left; }
+  .sig { margin-top: 18px; font-size: 9pt; color: #4b5563; width: 100%; }
+  .sig td { padding: 22px 8px 2px 0; border-bottom: 1px solid #9ca3af; width: 45%; }
+  .sig td.cap { border: 0; padding: 3px 8px 0 0; font-size: 8pt; }
+  .bands { font-family: "DejaVu Sans Mono", monospace; font-size: 9pt; }
+  .ref-table { width: 100%; border-collapse: collapse; font-size: 8pt; margin: 6px 0; }
+  .ref-table th { background: #78350f; color: #fff; padding: 4px; border: 1px solid #78350f; }
+  .ref-table td { border: 1px solid #fcd34d; padding: 4px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>Assessment 2 — Multiple Choice</h1>
+<p class="subhead">Information Technology 10 (IT 10) &nbsp;•&nbsp; Finding Resistance Value &amp; Resistance Color Code &nbsp;•&nbsp; 20 items &nbsp;•&nbsp; Answer key included</p>
+
+<table class="meta">
+  <tr>
+    <td class="label">Learning Area</td>
+    <td>Information Technology 10 (TLE / ICT — Electronics)</td>
+    <td class="label">Test Type</td>
+    <td>Multiple Choice</td>
+  </tr>
+  <tr>
+    <td class="label">Content / Topic</td>
+    <td>Reading 4-band resistor color codes: finding resistance value and finding the color code</td>
+    <td class="label">No. of Items</td>
+    <td>20</td>
+  </tr>
+  <tr>
+    <td class="label">Date</td>
+    <td>___________________</td>
+    <td class="label">Rating</td>
+    <td>______ / 20</td>
+  </tr>
+</table>
+
+<h2>Table of Specification (TOS)</h2>
+<table class="tos">
+  <tr>
+    <th rowspan="2" style="width:26%">Content / Topic</th>
+    <th rowspan="2" style="width:34%">Learning Competency</th>
+    <th rowspan="2">No. of<br>Items</th>
+    <th rowspan="2">%</th>
+    <th colspan="3">Cognitive Level</th>
+  </tr>
+  <tr>
+    <th>Remember</th>
+    <th>Understand</th>
+    <th>Apply</th>
+  </tr>
+  <tr>
+    <td class="l">A. Finding the Resistance Value from the Color Bands<br><span style="color:#6b7280">(4-band resistors, given bands → value)</span></td>
+    <td class="l">Interprets the digit and multiplier bands of a 4-band resistor to compute its resistance in ohms (Ω), kilohms (kΩ), or megohms (MΩ).</td>
+    <td>10</td>
+    <td>50%</td>
+    <td>2</td>
+    <td>3</td>
+    <td>5</td>
+  </tr>
+  <tr>
+    <td class="l">B. Finding the Resistance Color Code from the Value<br><span style="color:#6b7280">(given value → bands)</span></td>
+    <td class="l">Converts a given resistance value into its correct 4-band color code (two significant digits, multiplier, tolerance).</td>
+    <td>10</td>
+    <td>50%</td>
+    <td>2</td>
+    <td>3</td>
+    <td>5</td>
+  </tr>
+  <tr class="total">
+    <td class="l">TOTAL</td>
+    <td class="l"></td>
+    <td>20</td>
+    <td>100%</td>
+    <td>4</td>
+    <td>6</td>
+    <td>10</td>
+  </tr>
+  <tr class="total">
+    <td class="l">Percentage per cognitive level</td>
+    <td class="l"></td>
+    <td></td>
+    <td></td>
+    <td>20%</td>
+    <td>30%</td>
+    <td>50%</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Reference:</strong> Standard 4-band resistor color code (IEEE / IEC 60062).<br>
+  <strong>Directions:</strong> Read each item carefully and write the letter of the correct answer on the space provided. (1 point each.)
+</div>
+
+<h2>Quick Reference — 4-Band Resistor Color Code</h2>
+<table class="ref-table">
+  <tr>
+    <th>Color</th><th>Black</th><th>Brown</th><th>Red</th><th>Orange</th><th>Yellow</th><th>Green</th><th>Blue</th><th>Violet</th><th>Grey</th><th>White</th><th>Gold</th><th>Silver</th>
+  </tr>
+  <tr>
+    <td><strong>Digit</strong></td><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>—</td><td>—</td>
+  </tr>
+  <tr>
+    <td><strong>Multiplier</strong></td><td>×1</td><td>×10</td><td>×100</td><td>×1k</td><td>×10k</td><td>×100k</td><td>×1M</td><td>×10M</td><td>×100M</td><td>×1G</td><td>×0.1</td><td>×0.01</td>
+  </tr>
+  <tr>
+    <td><strong>Tolerance</strong></td><td>—</td><td>±1%</td><td>±2%</td><td>—</td><td>—</td><td>±0.5%</td><td>±0.25%</td><td>±0.1%</td><td>±0.05%</td><td>—</td><td>±5%</td><td>±10%</td>
+  </tr>
+</table>
+
+<h2>Part I — Finding the Resistance Value (Items 1–10)</h2>
+<p class="note"><em>From the given color bands, determine the resistance value of the 4-band resistor.</em></p>
+<ol class="items" start="1">
+  <li><span class="bands">Brown — Black — Red — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 100 Ω &nbsp;&nbsp; <span class="opt">B.</span> 1 kΩ &nbsp;&nbsp; <span class="opt">C.</span> 10 kΩ &nbsp;&nbsp; <span class="opt">D.</span> 100 kΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">Red — Red — Brown — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 22 Ω &nbsp;&nbsp; <span class="opt">B.</span> 220 Ω &nbsp;&nbsp; <span class="opt">C.</span> 2.2 kΩ &nbsp;&nbsp; <span class="opt">D.</span> 22 kΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">Yellow — Violet — Orange — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 470 Ω &nbsp;&nbsp; <span class="opt">B.</span> 4.7 kΩ &nbsp;&nbsp; <span class="opt">C.</span> 47 kΩ &nbsp;&nbsp; <span class="opt">D.</span> 470 kΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">Green — Blue — Brown — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 56 Ω &nbsp;&nbsp; <span class="opt">B.</span> 560 Ω &nbsp;&nbsp; <span class="opt">C.</span> 5.6 kΩ &nbsp;&nbsp; <span class="opt">D.</span> 56 kΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">Brown — Black — Orange — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 1 kΩ &nbsp;&nbsp; <span class="opt">B.</span> 10 kΩ &nbsp;&nbsp; <span class="opt">C.</span> 100 kΩ &nbsp;&nbsp; <span class="opt">D.</span> 1 MΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">Orange — Orange — Red — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 330 Ω &nbsp;&nbsp; <span class="opt">B.</span> 3.3 kΩ &nbsp;&nbsp; <span class="opt">C.</span> 33 kΩ &nbsp;&nbsp; <span class="opt">D.</span> 330 kΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">Brown — Black — Green — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 100 kΩ &nbsp;&nbsp; <span class="opt">B.</span> 1 MΩ &nbsp;&nbsp; <span class="opt">C.</span> 10 MΩ &nbsp;&nbsp; <span class="opt">D.</span> 100 MΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">White — Brown — Yellow — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 91 kΩ &nbsp;&nbsp; <span class="opt">B.</span> 910 kΩ &nbsp;&nbsp; <span class="opt">C.</span> 9.1 MΩ &nbsp;&nbsp; <span class="opt">D.</span> 91 MΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">Blue — Grey — Red — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 68 Ω &nbsp;&nbsp; <span class="opt">B.</span> 680 Ω &nbsp;&nbsp; <span class="opt">C.</span> 6.8 kΩ &nbsp;&nbsp; <span class="opt">D.</span> 68 kΩ</li>
+    </ul>
+  </li>
+  <li><span class="bands">Orange — White — Brown — Gold</span>
+    <ul class="opts">
+      <li><span class="opt">A.</span> 39 Ω &nbsp;&nbsp; <span class="opt">B.</span> 390 Ω &nbsp;&nbsp; <span class="opt">C.</span> 3.9 kΩ &nbsp;&nbsp; <span class="opt">D.</span> 39 kΩ</li>
+    </ul>
+  </li>
+</ol>
+
+<h2>Part II — Finding the Resistance Color Code (Items 11–20)</h2>
+<p class="note"><em>From the given resistance value, determine the correct 4-band color code (all items use gold ±5% tolerance).</em></p>
+<ol class="items" start="11">
+  <li>220 Ω
+    <ul class="opts">
+      <li><span class="opt">A.</span> Red — Red — Brown — Gold &nbsp;&nbsp; <span class="opt">B.</span> Red — Red — Red — Gold</li>
+      <li><span class="opt">C.</span> Brown — Red — Red — Gold &nbsp;&nbsp; <span class="opt">D.</span> Orange — Orange — Brown — Gold</li>
+    </ul>
+  </li>
+  <li>1 kΩ (1,000 Ω)
+    <ul class="opts">
+      <li><span class="opt">A.</span> Brown — Black — Brown — Gold &nbsp;&nbsp; <span class="opt">B.</span> Brown — Black — Red — Gold</li>
+      <li><span class="opt">C.</span> Red — Black — Brown — Gold &nbsp;&nbsp; <span class="opt">D.</span> Brown — Black — Orange — Gold</li>
+    </ul>
+  </li>
+  <li>4.7 kΩ (4,700 Ω)
+    <ul class="opts">
+      <li><span class="opt">A.</span> Yellow — Violet — Brown — Gold &nbsp;&nbsp; <span class="opt">B.</span> Yellow — Violet — Red — Gold</li>
+      <li><span class="opt">C.</span> Violet — Yellow — Red — Gold &nbsp;&nbsp; <span class="opt">D.</span> Yellow — Violet — Orange — Gold</li>
+    </ul>
+  </li>
+  <li>10 kΩ (10,000 Ω)
+    <ul class="opts">
+      <li><span class="opt">A.</span> Brown — Black — Red — Gold &nbsp;&nbsp; <span class="opt">B.</span> Brown — Black — Orange — Gold</li>
+      <li><span class="opt">C.</span> Brown — Black — Yellow — Gold &nbsp;&nbsp; <span class="opt">D.</span> Orange — Black — Brown — Gold</li>
+    </ul>
+  </li>
+  <li>330 Ω
+    <ul class="opts">
+      <li><span class="opt">A.</span> Orange — Orange — Brown — Gold &nbsp;&nbsp; <span class="opt">B.</span> Orange — Orange — Red — Gold</li>
+      <li><span class="opt">C.</span> Red — Orange — Brown — Gold &nbsp;&nbsp; <span class="opt">D.</span> Orange — Orange — Orange — Gold</li>
+    </ul>
+  </li>
+  <li>470 Ω
+    <ul class="opts">
+      <li><span class="opt">A.</span> Yellow — Violet — Brown — Gold &nbsp;&nbsp; <span class="opt">B.</span> Yellow — Violet — Red — Gold</li>
+      <li><span class="opt">C.</span> Violet — Yellow — Brown — Gold &nbsp;&nbsp; <span class="opt">D.</span> Yellow — Violet — Orange — Gold</li>
+    </ul>
+  </li>
+  <li>100 Ω
+    <ul class="opts">
+      <li><span class="opt">A.</span> Brown — Black — Black — Gold &nbsp;&nbsp; <span class="opt">B.</span> Brown — Black — Brown — Gold</li>
+      <li><span class="opt">C.</span> Brown — Black — Red — Gold &nbsp;&nbsp; <span class="opt">D.</span> Red — Black — Brown — Gold</li>
+    </ul>
+  </li>
+  <li>6.8 kΩ (6,800 Ω)
+    <ul class="opts">
+      <li><span class="opt">A.</span> Blue — Grey — Brown — Gold &nbsp;&nbsp; <span class="opt">B.</span> Blue — Grey — Red — Gold</li>
+      <li><span class="opt">C.</span> Grey — Blue — Red — Gold &nbsp;&nbsp; <span class="opt">D.</span> Blue — Grey — Orange — Gold</li>
+    </ul>
+  </li>
+  <li>3.3 kΩ (3,300 Ω)
+    <ul class="opts">
+      <li><span class="opt">A.</span> Orange — Orange — Brown — Gold &nbsp;&nbsp; <span class="opt">B.</span> Orange — Orange — Orange — Gold</li>
+      <li><span class="opt">C.</span> Orange — Orange — Red — Gold &nbsp;&nbsp; <span class="opt">D.</span> Red — Orange — Orange — Gold</li>
+    </ul>
+  </li>
+  <li>47 kΩ (47,000 Ω)
+    <ul class="opts">
+      <li><span class="opt">A.</span> Yellow — Violet — Red — Gold &nbsp;&nbsp; <span class="opt">B.</span> Yellow — Violet — Orange — Gold</li>
+      <li><span class="opt">C.</span> Violet — Yellow — Orange — Gold &nbsp;&nbsp; <span class="opt">D.</span> Yellow — Violet — Yellow — Gold</li>
+    </ul>
+  </li>
+</ol>
+
+<h2>Answer Key — Assessment 2</h2>
+<table class="key">
+  <tr>
+    <th style="width:8%">No.</th><th style="width:10%">Answer</th><th style="width:32%">Solution</th>
+    <th style="width:8%">No.</th><th style="width:10%">Answer</th><th style="width:32%">Solution</th>
+  </tr>
+  <tr>
+    <td>1</td><td>B</td><td class="l">Brown(1) Black(0) ×100 = 1,000 Ω = 1 kΩ</td>
+    <td>11</td><td>A</td><td class="l">220 = 2-2-×10 → Red, Red, Brown, Gold</td>
+  </tr>
+  <tr>
+    <td>2</td><td>B</td><td class="l">Red(2) Red(2) ×10 = 220 Ω</td>
+    <td>12</td><td>B</td><td class="l">1,000 = 1-0-×100 → Brown, Black, Red, Gold</td>
+  </tr>
+  <tr>
+    <td>3</td><td>C</td><td class="l">Yellow(4) Violet(7) ×1k = 47,000 Ω = 47 kΩ</td>
+    <td>13</td><td>B</td><td class="l">4,700 = 4-7-×100 → Yellow, Violet, Red, Gold</td>
+  </tr>
+  <tr>
+    <td>4</td><td>B</td><td class="l">Green(5) Blue(6) ×10 = 560 Ω</td>
+    <td>14</td><td>B</td><td class="l">10,000 = 1-0-×1k → Brown, Black, Orange, Gold</td>
+  </tr>
+  <tr>
+    <td>5</td><td>B</td><td class="l">Brown(1) Black(0) ×1k = 10,000 Ω = 10 kΩ</td>
+    <td>15</td><td>A</td><td class="l">330 = 3-3-×10 → Orange, Orange, Brown, Gold</td>
+  </tr>
+  <tr>
+    <td>6</td><td>B</td><td class="l">Orange(3) Orange(3) ×100 = 3,300 Ω = 3.3 kΩ</td>
+    <td>16</td><td>A</td><td class="l">470 = 4-7-×10 → Yellow, Violet, Brown, Gold</td>
+  </tr>
+  <tr>
+    <td>7</td><td>B</td><td class="l">Brown(1) Black(0) ×100k = 1,000,000 Ω = 1 MΩ</td>
+    <td>17</td><td>B</td><td class="l">100 = 1-0-×10 → Brown, Black, Brown, Gold</td>
+  </tr>
+  <tr>
+    <td>8</td><td>B</td><td class="l">White(9) Brown(1) ×10k = 910,000 Ω = 910 kΩ</td>
+    <td>18</td><td>B</td><td class="l">6,800 = 6-8-×100 → Blue, Grey, Red, Gold</td>
+  </tr>
+  <tr>
+    <td>9</td><td>C</td><td class="l">Blue(6) Grey(8) ×100 = 6,800 Ω = 6.8 kΩ</td>
+    <td>19</td><td>C</td><td class="l">3,300 = 3-3-×100 → Orange, Orange, Red, Gold</td>
+  </tr>
+  <tr>
+    <td>10</td><td>B</td><td class="l">Orange(3) White(9) ×10 = 390 Ω</td>
+    <td>20</td><td>B</td><td class="l">47,000 = 4-7-×1k → Yellow, Violet, Orange, Gold</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Scoring guide:</strong> 1 point per correct answer; 20 points total. In both parts, the gold band indicates ±5% tolerance. Formula used: R = (1st digit × 10 + 2nd digit) × multiplier.
+</div>
+
+<table class="sig">
+  <tr>
+    <td>Prepared by</td>
+    <td>Checked / Approved by</td>
+  </tr>
+  <tr>
+    <td class="cap">IT 10 Teacher</td>
+    <td class="cap">Department Head / Coordinator</td>
+  </tr>
+</table>
+
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#800000" />
+    <title>You're offline | MIOW LMS</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f7f5f2;
+        --fg: #1a1a1a;
+        --muted: #5c5c5c;
+        --card: #ffffff;
+        --accent: #800000;
+        --border: #e4e0da;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1b2a;
+          --fg: #f2f4f7;
+          --muted: #a8b0bd;
+          --card: #14263a;
+          --border: #24384f;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--fg);
+        font-family:
+          Outfit,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        width: 100%;
+        max-width: 26rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px 28px;
+        text-align: center;
+        box-shadow: 0 12px 32px rgb(0 0 0 / 0.08);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        background: rgb(128 0 0 / 0.08);
+        border-radius: 999px;
+        padding: 6px 12px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      h1 {
+        margin: 18px 0 8px;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+      p {
+        margin: 0 0 24px;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.55;
+      }
+      button {
+        width: 100%;
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 16px;
+        font: inherit;
+        font-weight: 600;
+        color: #fff;
+        background: var(--accent);
+        cursor: pointer;
+      }
+      button:hover {
+        filter: brightness(1.08);
+      }
+      button:focus-visible {
+        outline: 3px solid rgb(128 0 0 / 0.4);
+        outline-offset: 2px;
+      }
+      .hint {
+        margin-top: 16px;
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <span class="badge"><span class="dot" aria-hidden="true"></span> Offline</span>
+      <h1>You're offline</h1>
+      <p>
+        No internet connection right now. Your classes, grades and attendance are safe — reconnect
+        to continue where you left off.
+      </p>
+      <button type="button" onclick="window.location.reload()">Try again</button>
+      <p class="hint">MIOW — Integrated Developmental School Online Workspace</p>
+    </main>
+    <script>
+      // Auto-retry as soon as connectivity returns.
+      window.addEventListener("online", function () {
+        window.location.reload();
+      });
+    </script>
+  </body>
+</html>

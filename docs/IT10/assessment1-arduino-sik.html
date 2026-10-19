@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 16mm 16mm;
+    @bottom-center {
+      content: "IT 10 — Assessment 1: Arduino Family & SIK Components   |   Page " counter(page) " of " counter(pages);
+      font-family: "DejaVu Sans", sans-serif;
+      font-size: 7.5pt;
+      color: #6b7280;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "DejaVu Sans", "Liberation Sans", sans-serif;
+    color: #1f2937;
+    font-size: 10pt;
+    line-height: 1.45;
+    margin: 0;
+  }
+  h1 {
+    font-size: 15pt;
+    margin: 0 0 2px 0;
+    color: #6d28d9;
+    letter-spacing: .2px;
+  }
+  h2 {
+    font-size: 11.5pt;
+    margin: 16px 0 6px 0;
+    padding: 4px 8px;
+    background: #6d28d9;
+    color: #fff;
+    border-radius: 4px;
+  }
+  .subhead { color: #4b5563; font-size: 9pt; margin: 0 0 10px 0; }
+  .meta {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 12px 0;
+    font-size: 9pt;
+  }
+  .meta td {
+    border: 1px solid #d1d5db;
+    padding: 5px 8px;
+  }
+  .meta td.label { background: #f3f0ff; font-weight: bold; width: 22%; color: #5b21b6; }
+  table.tos {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    margin: 6px 0 12px 0;
+  }
+  table.tos th {
+    background: #4c1d95;
+    color: #fff;
+    padding: 6px 5px;
+    border: 1px solid #4c1d95;
+    text-align: center;
+  }
+  table.tos td {
+    border: 1px solid #c4b5fd;
+    padding: 5px 5px;
+    text-align: center;
+    vertical-align: top;
+  }
+  table.tos td.l { text-align: left; }
+  table.tos tr.total td {
+    background: #ede9fe;
+    font-weight: bold;
+    color: #4c1d95;
+  }
+  .note {
+    background: #f9fafb;
+    border-left: 3px solid #a78bfa;
+    padding: 6px 10px;
+    font-size: 8.5pt;
+    color: #4b5563;
+    margin: 8px 0;
+  }
+  ol.items { margin: 4px 0 0 0; padding-left: 20px; }
+  ol.items > li {
+    margin-bottom: 10px;
+    padding-left: 4px;
+    font-size: 10pt;
+  }
+  .answer-line {
+    display: inline-block;
+    border-bottom: 1px solid #9ca3af;
+    width: 220px;
+    margin-left: 8px;
+  }
+  .answer-line-short { width: 120px; }
+  table.key {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    margin: 6px 0;
+  }
+  table.key th {
+    background: #0f766e;
+    color: #fff;
+    padding: 5px;
+    border: 1px solid #0f766e;
+    text-align: center;
+  }
+  table.key td {
+    border: 1px solid #99f6e4;
+    padding: 5px;
+    text-align: center;
+    vertical-align: top;
+  }
+  table.key td.l { text-align: left; }
+  .sig {
+    margin-top: 18px;
+    font-size: 9pt;
+    color: #4b5563;
+    width: 100%;
+  }
+  .sig td { padding: 22px 8px 2px 0; border-bottom: 1px solid #9ca3af; width: 45%; }
+  .sig td.cap { border: 0; padding: 3px 8px 0 0; font-size: 8pt; }
+</style>
+</head>
+<body>
+
+<h1>Assessment 1 — Identification</h1>
+<p class="subhead">Information Technology 10 (IT 10) &nbsp;•&nbsp; Arduino Family and Arduino SIK Components &nbsp;•&nbsp; 20 items &nbsp;•&nbsp; Answer key included</p>
+
+<table class="meta">
+  <tr>
+    <td class="label">Learning Area</td>
+    <td>Information Technology 10 (TLE / ICT — Computer Systems &amp; Electronics)</td>
+    <td class="label">Test Type</td>
+    <td>Identification</td>
+  </tr>
+  <tr>
+    <td class="label">Content / Topic</td>
+    <td>Arduino Family and Arduino SIK (SparkFun Inventor's Kit) Components</td>
+    <td class="label">No. of Items</td>
+    <td>20</td>
+  </tr>
+  <tr>
+    <td class="label">Date</td>
+    <td>___________________</td>
+    <td class="label">Rating</td>
+    <td>______ / 20</td>
+  </tr>
+</table>
+
+<h2>Table of Specification (TOS)</h2>
+<table class="tos">
+  <tr>
+    <th rowspan="2" style="width:26%">Content / Topic</th>
+    <th rowspan="2" style="width:34%">Learning Competency</th>
+    <th rowspan="2">No. of<br>Items</th>
+    <th rowspan="2">%</th>
+    <th colspan="3">Cognitive Level</th>
+  </tr>
+  <tr>
+    <th>Remember</th>
+    <th>Understand</th>
+    <th>Apply</th>
+  </tr>
+  <tr>
+    <td class="l">A. The Arduino Family<br><span style="color:#6b7280">(boards, microcontroller, IDE, sketch, program structure)</span></td>
+    <td class="l">Identifies the members of the Arduino family and their core parts; describes the purpose of the Arduino IDE, sketch, <em>setup()</em> and <em>loop()</em>.</td>
+    <td>10</td>
+    <td>50%</td>
+    <td>6</td>
+    <td>3</td>
+    <td>1</td>
+  </tr>
+  <tr>
+    <td class="l">B. Arduino SIK Components<br><span style="color:#6b7280">(input, output, and passive components of the Inventor's Kit)</span></td>
+    <td class="l">Identifies SIK components (LED, resistor, potentiometer, photoresistor, temperature sensor, buzzer, motor, transistor, button, breadboard) and classifies each as input, output, or passive device.</td>
+    <td>10</td>
+    <td>50%</td>
+    <td>5</td>
+    <td>3</td>
+    <td>2</td>
+  </tr>
+  <tr class="total">
+    <td class="l">TOTAL</td>
+    <td class="l"></td>
+    <td>20</td>
+    <td>100%</td>
+    <td>11</td>
+    <td>6</td>
+    <td>3</td>
+  </tr>
+  <tr class="total">
+    <td class="l">Percentage per cognitive level</td>
+    <td class="l"></td>
+    <td></td>
+    <td></td>
+    <td>55%</td>
+    <td>30%</td>
+    <td>15%</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Reference:</strong> Official Arduino documentation (arduino.cc) and the SparkFun Inventor's Kit (SIK) Guide. &nbsp;|&nbsp;
+  <strong>Directions:</strong> Write the correct term on the space provided. Spelling counts. (1 point each.)
+</div>
+
+<h2>Part I — The Arduino Family (Items 1–10)</h2>
+<ol class="items" start="1">
+  <li>It is the open-source electronics platform built on easy-to-use hardware (boards) and software (IDE).</li>
+  <li>The most common Arduino board, based on the ATmega328P microcontroller, widely used by beginners.</li>
+  <li>The Arduino board with 54 digital I/O pins and 16 analog inputs, designed for projects that need many connections.</li>
+  <li>The round, sewable Arduino board designed for wearable and e-textile projects.</li>
+  <li>The chip on the Arduino board that stores and executes the uploaded program (e.g., ATmega328P on the Uno).</li>
+  <li>The official software application used to write, compile, and upload programs to an Arduino board.</li>
+  <li>The name of a program written for the Arduino board (file extension <em>.ino</em>).</li>
+  <li>The function that runs once when the board is powered on or reset.</li>
+  <li>The function that runs over and over again continuously after <em>setup()</em> finishes.</li>
+  <li>The named connection points on an Arduino (DIGITAL, ANALOG IN, POWER) where components or jumper wires are attached.</li>
+</ol>
+
+<h2>Part II — Arduino SIK Components (Items 11–20)</h2>
+<ol class="items" start="11">
+  <li>The SIK component that gives off light when electric current flows through it in the correct direction.</li>
+  <li>The passive SIK component that limits the amount of current flowing in a circuit.</li>
+  <li>The SIK component with a rotating knob that acts as an adjustable voltage divider (variable resistor).</li>
+  <li>The SIK sensor whose resistance changes depending on the amount of light that hits it.</li>
+  <li>The SIK sensor used to measure temperature (commonly the TMP36).</li>
+  <li>The SIK component that converts electrical signals into sound.</li>
+  <li>The SIK component that converts electrical energy into rotary motion.</li>
+  <li>The semiconductor SIK component used as an electronic switch so that a small signal can control a high-current device such as a motor.</li>
+  <li>The simple SIK input device pressed by the user to open or close a circuit (momentary switch).</li>
+  <li>The solderless board where SIK circuits are built before connecting them to the Arduino.</li>
+</ol>
+
+<h2>Answer Key — Assessment 1</h2>
+<table class="key">
+  <tr>
+    <th style="width:8%">No.</th><th style="width:46%">Answer</th>
+    <th style="width:8%">No.</th><th style="width:38%">Answer</th>
+  </tr>
+  <tr>
+    <td>1</td><td class="l">Arduino</td>
+    <td>11</td><td class="l">Light-Emitting Diode (LED)</td>
+  </tr>
+  <tr>
+    <td>2</td><td class="l">Arduino Uno</td>
+    <td>12</td><td class="l">Resistor</td>
+  </tr>
+  <tr>
+    <td>3</td><td class="l">Arduino Mega 2560</td>
+    <td>13</td><td class="l">Potentiometer</td>
+  </tr>
+  <tr>
+    <td>4</td><td class="l">Arduino LilyPad</td>
+    <td>14</td><td class="l">Photoresistor / Light-Dependent Resistor (LDR)</td>
+  </tr>
+  <tr>
+    <td>5</td><td class="l">Microcontroller</td>
+    <td>15</td><td class="l">Temperature sensor (TMP36)</td>
+  </tr>
+  <tr>
+    <td>6</td><td class="l">Arduino IDE</td>
+    <td>16</td><td class="l">Piezo buzzer / Buzzer</td>
+  </tr>
+  <tr>
+    <td>7</td><td class="l">Sketch</td>
+    <td>17</td><td class="l">DC motor / Motor</td>
+  </tr>
+  <tr>
+    <td>8</td><td class="l">setup()</td>
+    <td>18</td><td class="l">Transistor</td>
+  </tr>
+  <tr>
+    <td>9</td><td class="l">loop()</td>
+    <td>19</td><td class="l">Push button / Tactile button</td>
+  </tr>
+  <tr>
+    <td>10</td><td class="l">Pins (I/O pins)</td>
+    <td>20</td><td class="l">Breadboard</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Scoring guide:</strong> 1 point per correct answer; 20 points total. Accept equivalent answers where indicated (e.g., "LDR" for photoresistor, "buzzer" for piezo buzzer). Minor spelling errors that do not change the term may be accepted at the teacher's discretion.
+</div>
+
+<table class="sig">
+  <tr>
+    <td>Prepared by</td>
+    <td>Checked / Approved by</td>
+  </tr>
+  <tr>
+    <td class="cap">IT 10 Teacher</td>
+    <td class="cap">Department Head / Coordinator</td>
+  </tr>
+</table>
+
+</body>
+</html>

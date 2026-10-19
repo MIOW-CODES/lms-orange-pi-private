@@ -1,0 +1,7 @@
+# Local agent/deepwork scratch space.
+# `.gitignore` excludes .slim/deepwork/ from version control, while this
+# `.ignore` re-includes it for local search/indexing tools (ripgrep, opencode)
+# so the orchestrator can read its own progress files. Neither rule affects
+# shipped source.
+!.slim/deepwork/
+!.slim/deepwork/**

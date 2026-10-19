@@ -1,0 +1,1943 @@
+import { notifyTasksChanged, type PendingTaskCounts } from "@/lib/pending-tasks";
+import { clearLegacyNavigationCaches } from "@/lib/pwa-cache";
+import {
+  reviewAttemptQuestionFn,
+  previewIdentificationRegradeFn,
+  getClassRecordFn,
+  saveClassRecordFn,
+  pendingTasksFn,
+  bulkAddStudentsFn,
+  countRowsFn,
+  createAnnouncementFn,
+  createAssignmentFn,
+  createCourseFn,
+  createProfileFn,
+  createOrEnrollStudentFn,
+  createQuizWithQuestionsFn,
+  createSectionFn,
+  deleteAnnouncementFn,
+  deleteAttendanceLogFn,
+  listRfidDevicesFn,
+  createRfidDeviceFn,
+  deactivateRfidDeviceFn,
+  deleteCourseFn,
+  deleteCourseMeetingFn,
+  deleteProfileFn,
+  enrollSectionStudentsFn,
+  enrollStudentFn,
+  enrollStudentsFn,
+  enrollmentsForCourseFn,
+  enrollmentsForStudentFn,
+  getKioskLockdownFn,
+  getProfileByRfidFn,
+  getQuizFn,
+  grantQuizRetakeFn,
+  requestQuizRetakeFn,
+  listQuizRetakeRequestsFn,
+  reviewQuizRetakeRequestFn,
+  listAllAttendanceFn,
+  listAllUsersFn,
+  listAnnouncementsFn,
+  listAssignmentsFn,
+  listAttendanceFn,
+  listAuditLogsFn,
+  listCourseMeetingsFn,
+  listCourseSectionsFn,
+  listCoursesFn,
+  listCourseTosFn,
+  listGradesForCourseFn,
+  listGradesForStudentFn,
+  listMeetingMembersFn,
+  listQuizAttemptsFn,
+  listQuestionBankFn,
+  listQuizScoresForCourseFn,
+  listQuizzesFn,
+  listSectionsFn,
+  listStaffFn,
+  listStudentsFn,
+  listSubmissionsForStudentFn,
+  listTeachersFn,
+  listTeacherDirectoryFn,
+  createTeacherFn,
+  enrollBiometricsFn,
+  logAttendanceFn,
+  bulkLogAttendanceFn,
+  myQuizSummariesFn,
+  quizAttemptInfoFn,
+  recordTapFn,
+  refreshSessionFn,
+  setKioskLockdownFn,
+  resetQuizAttemptsFn,
+  submitAssignmentFn,
+  submitQuizAttemptFn,
+  updateAnnouncementFn,
+  updateAttendanceLogFn,
+  updateCourseFn,
+  updateProfileFn,
+  updateTeacherSettingsFn,
+  updateQuizRetakePolicyFn,
+  updateQuestionFn,
+  updateQuizFn,
+  updateAssignmentFn,
+  upsertTosFn,
+  deleteQuizFn,
+  deleteAssignmentFn,
+  deleteTosFn,
+  uploadCourseMaterialFn,
+  attachCourseMaterialFn,
+  removeCourseMaterialFn,
+  uploadAnnouncementMaterialFn,
+  removeAnnouncementMaterialFn,
+  listAnnouncementAttachmentsFn,
+  listFeedbackReportsFn,
+  createFeedbackReportFn,
+  updateFeedbackReportFn,
+  logoutFn,
+  updateUserRoleFn,
+  uploadAvatarFn,
+  upsertGradeFn,
+  upsertCourseMeetingFn,
+  setMeetingMembersFn,
+  setCourseSectionsFn,
+  pinLoginFn,
+  changeOwnPinFn,
+  uploadSubmissionFileFn,
+  listSubmissionsForAssignmentFn,
+  gradeSubmissionFn,
+  overrideAttemptFn,
+  listStudentAttemptDetailFn,
+} from "@/lib/lms.functions";
+import type {
+  BulkAddResult,
+  BulkAddRowOutcome,
+  BulkStudentRow,
+  StudentEnrollInput,
+} from "@/lib/enrollment";
+import type { IntegrityEventType } from "@/lib/integrity";
+
+export type { StudentEnrollInput, BulkStudentRow, BulkAddResult, BulkAddRowOutcome };
+
+/* ---------- Types ---------- */
+
+export type Role = "student" | "teacher" | "admin";
+
+export interface Profile {
+  id: string;
+  student_id: string | null;
+  email: string | null;
+  pin: string | null;
+  full_name: string;
+  role: Role;
+  rfid_uid: string | null;
+  avatar_url: string | null;
+  grade_level: number | null;
+  section: string | null;
+  created_at: string;
+  /** Faculty identity fields (teachers/admins). */
+  employee_id?: string | null | undefined;
+  prefix?: string | null | undefined;
+  department?: string | null | undefined;
+  phone?: string | null | undefined;
+  bio?: string | null | undefined;
+  office_hours?: string | null | undefined;
+  /** Server-set indicators; credential values themselves are never sent to the browser. */
+  has_pin?: boolean;
+  has_rfid?: boolean;
+  /** Forced PIN-change gate (student policy) — true until the user picks a private PIN. */
+  pin_must_change?: boolean;
+  /** Signed session token issued at login; required by every gated server function. */
+  session_token?: string;
+}
+
+/** Faculty row for the admin Teachers directory — profile + course relations. */
+export interface TeacherRecord extends Profile {
+  courses: { id: string; title: string; code: string }[];
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  category: "urgent" | "event" | "academic";
+  target_audience: string;
+  author_id: string | null;
+  pinned: boolean;
+  created_at: string;
+}
+
+export interface AnnouncementAttachment {
+  id: string;
+  announcement_id: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  mime: string;
+  created_at: string;
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  code: string;
+  grade_level: number;
+  teacher_id: string | null;
+  color: string;
+  teacher_name?: string | undefined;
+  /** Weekly timetable matrix — drives the schedule-aware tap status engine. */
+  days_of_week?: string[] | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  late_threshold_minutes?: number;
+  /** G7-College model: 7=G7 .. 12=G12, 13=College 1st Yr .. 16=4th Yr */
+  education_level?: "jhs" | "shs" | "college" | null;
+  college_year?: number | null;
+  strand?: string | null;
+  program?: string | null;
+  grading_system?: "k12_quarterly" | "college_semestral" | null;
+}
+
+const DAY_LABELS: Record<string, string> = {
+  mon: "Mon",
+  tue: "Tue",
+  wed: "Wed",
+  thu: "Thu",
+  fri: "Fri",
+  sat: "Sat",
+  sun: "Sun",
+};
+
+/** "Mon/Wed/Fri · 07:30–08:30 (+10m grace)" or null when unscheduled. */
+export function formatSchedule(c: Partial<Course>): string | null {
+  if (!c.days_of_week?.length || !c.start_time || !c.end_time) return null;
+  const days = c.days_of_week.map((d) => DAY_LABELS[d] ?? d).join("/");
+  const fmt = (t: string) => t.slice(0, 5);
+  return `${days} · ${fmt(c.start_time)}–${fmt(c.end_time)} (+${c.late_threshold_minutes ?? 10}m grace)`;
+}
+
+/** Payload shape a (mock or real) RFID reader dispatches on each tap. */
+export interface TapPayload {
+  uid: string;
+  timestamp: string;
+}
+
+/** Build a hardware-style mock tap event for the simulated reader. */
+export function createMockTapPayload(uid?: string): TapPayload {
+  return {
+    // Digit-only UID so the payload passes the same rfid_uid schema a real
+    // keyboard-emulating reader's output would (6–20 digits).
+    uid: uid ?? String(Math.floor(1e9 + Math.random() * 9e9)),
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export interface TapResult {
+  profile: Profile;
+  scan_type: "in" | "out";
+  status: AttendanceStatus;
+  course: {
+    id: string;
+    code: string;
+    title: string;
+    start_time: string;
+    end_time: string;
+    late_threshold_minutes: number;
+  } | null;
+  at: string;
+}
+
+export interface Assignment {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  total_points: number;
+  component_type: "written_work" | "performance_task" | "quarterly_exam";
+  /** Teacher-gated release (Task 23). */
+  score_released?: boolean | null;
+  /** Handouts uploaded by staff (PDF/DOCX/PNG/JPG/ZIP). */
+  attachments?: Attachment[];
+  opens_at?: string | null;
+  closes_at?: string | null;
+}
+
+// Pedagogical alias — DB table stays `assignments`, UI calls them Activities.
+export type Activity = Assignment;
+
+export interface Submission {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  file_url: string | null;
+  file_urls?: Attachment[];
+  content: string | null;
+  score: number | null;
+  feedback: string | null;
+  status: "pending" | "submitted" | "graded";
+  submitted_at: string | null;
+}
+
+/** File metadata for one uploaded course material. */
+export interface Attachment {
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+  path: string;
+}
+
+/** One student's submission on an assignment, as seen by staff. */
+export interface AssignmentSubmission {
+  id: string;
+  student_id: string;
+  full_name: string;
+  student_no: string | null;
+  section: string | null;
+  content: string | null;
+  file_urls: Attachment[];
+  score: number | null;
+  feedback: string | null;
+  status: "pending" | "submitted" | "graded";
+  submitted_at: string | null;
+}
+
+/** Full per-question attempt detail for one student on one worksheet. */
+export interface AttemptDetail {
+  quiz: { id: string; title: string };
+  student: { id: string; full_name: string; student_no: string | null; section: string | null };
+  attempts: Array<{
+    id: string;
+    attempt_number: number;
+    score: number;
+    raw_score: number;
+    integrity_penalty: number;
+    total: number;
+    created_at: string;
+    results: Array<{
+      id: string;
+      question: string;
+      options: string[];
+      chosen: string | null;
+      correct_answer: string;
+      correct: boolean;
+    }>;
+    tab_switches: Array<{ at: number; type: string }>;
+  }>;
+  override: { score: number | null; total: number | null; notes: string | null } | null;
+}
+
+export type RetakePolicy = "highest_score" | "latest_attempt" | "average_score";
+
+/** College term breakdown — 4 periods per semester, 2 semesters. */
+export const COLLEGE_TERMS = [
+  { value: 1, label: "Prelim", semester: 1 },
+  { value: 2, label: "Midterm", semester: 1 },
+  { value: 3, label: "Semi-Final", semester: 1 },
+  { value: 4, label: "Final", semester: 1 },
+  { value: 5, label: "Prelim", semester: 2 },
+  { value: 6, label: "Midterm", semester: 2 },
+  { value: 7, label: "Semi-Final", semester: 2 },
+  { value: 8, label: "Final", semester: 2 },
+] as const;
+
+/** True when a course uses the college semestral grading model. */
+export function isCollegeGrading(
+  course?: {
+    grading_system?: string | null;
+    education_level?: string | null;
+  } | null,
+): boolean {
+  if (!course) return false;
+  return course.grading_system === "college_semestral" || course.education_level === "college";
+}
+
+/** "Q2" for K-12, or "Midterm (Sem 1)" for college. */
+export function termLabel(
+  term: number,
+  course?: { grading_system?: string | null; education_level?: string | null } | null,
+): string {
+  if (isCollegeGrading(course)) {
+    const t = COLLEGE_TERMS.find((x) => x.value === term);
+    return t ? `${t.label} · Sem ${t.semester}` : `Term ${term}`;
+  }
+  return `Q${term}`;
+}
+
+/** Selectable term values for a course (4 for K-12, 8 for college). */
+export function termOptions(
+  course?: { grading_system?: string | null; education_level?: string | null } | null,
+): number[] {
+  return isCollegeGrading(course) ? COLLEGE_TERMS.map((t) => t.value) : [1, 2, 3, 4];
+}
+
+export interface Quiz {
+  id: string;
+  course_id: string;
+  title: string;
+  duration_minutes: number;
+  allow_retake: boolean;
+  /** 0 = unlimited attempts while retakes are allowed. */
+  max_attempts: number;
+  retake_score_policy: RetakePolicy;
+  /** Teacher-gated release (Task 23): when false student sees Awaiting release. */
+  score_released?: boolean | null;
+  answer_key_released?: boolean | null;
+  /** 0 = show all questions; >0 = random subset of this size per student. */
+  question_count?: number;
+  /** Handouts uploaded by staff (PDF/DOCX/PNG/JPG/ZIP). */
+  attachments?: Attachment[];
+  opens_at?: string | null;
+  closes_at?: string | null;
+}
+
+export interface QuizQuestion {
+  id: string;
+  quiz_id: string;
+  question: string;
+  options: string[];
+  correct_answer: string;
+  position: number;
+  question_type?: import("@/lib/question-types").QuestionType | null;
+  /** Question media — URL or data URL rendered above the answer area. */
+  image_url?: string | null;
+  /** Embeds the Virtual Arduino Lab (code + breadboard) for this task; the question text must require breadboard wiring. */
+  lab_task?: boolean;
+  /** Always included when an attempt draws the question bank (fixed sections). */
+  required?: boolean;
+}
+
+/** Quiz question as served to students — the answer key stays on the server. */
+export type QuizQuestionPublic = Omit<QuizQuestion, "correct_answer">;
+
+export interface CourseMeeting {
+  id: string;
+  course_id: string;
+  kind: "lecture" | "lab";
+  label: string;
+  days_of_week: string[];
+  start_time: string;
+  end_time: string;
+  capacity: number | null;
+  sort_order: number;
+}
+
+export interface Section {
+  id: string;
+  name: string;
+  education_level: "jhs" | "shs" | "college";
+  program?: string | null;
+  college_year?: number | null;
+  adviser_id?: string | null;
+}
+
+export interface CourseSection extends Section {
+  student_count?: number;
+}
+
+export interface GradeOverrideFlag {
+  note?: string | null;
+  by?: string;
+  at?: string;
+}
+
+export interface Grade {
+  id: string;
+  student_id: string;
+  course_id: string;
+  quarter: number;
+  written_work_score: number | null;
+  performance_task_score: number | null;
+  exam_score: number | null;
+  transmuted_final_grade: number | null;
+  class_record_snapshot?: import("./class-record").RecordSnapshot | null;
+  overridden_by_teacher?: boolean;
+  override_notes?: string | null;
+  overridden_at?: string | null;
+  overridden_by?: string | null;
+  override_flags?: Record<string, GradeOverrideFlag>;
+}
+
+export type AttendanceStatus = "on-time" | "late" | "excused";
+
+export interface AttendanceLog {
+  id: string;
+  student_id: string;
+  timestamp: string;
+  scan_type: "in" | "out";
+  status: AttendanceStatus;
+}
+
+/** Per-question breakdown returned after a quiz is submitted. */
+export interface QuizResultItem {
+  id: string;
+  question: string;
+  options: string[];
+  chosen: string | null;
+  correct_answer: string;
+  correct: boolean;
+  image_url?: string | null;
+}
+
+/** Attempt state for one worksheet, for the signed-in student. */
+export interface QuizAttemptInfo {
+  quiz_id: string;
+  allow_retake: boolean;
+  max_attempts: number;
+  retake_score_policy: RetakePolicy;
+  attempts_used: number;
+  /** null = unlimited. */
+  attempts_allowed: number | null;
+  can_retake: boolean;
+  effective_score: number | null;
+  effective_total: number | null;
+  extra_attempts: number;
+}
+
+/** Compact per-worksheet attempt summary for the signed-in student. */
+export interface QuizAttemptSummary {
+  quiz_id: string;
+  attempts_used: number;
+  /** null = unlimited. */
+  attempts_allowed: number | null;
+  can_retake: boolean;
+  effective_score: number | null;
+  effective_total: number | null;
+  retake_request_status?: "pending" | "approved" | "denied" | null;
+}
+
+export interface QuizRetakeRequest {
+  id: string;
+  quiz_id: string;
+  student_id: string;
+  status: "pending";
+  requested_at: string;
+  student: {
+    id: string;
+    full_name: string;
+    student_no: string | null;
+    section: string | null;
+  } | null;
+}
+
+/** Discriminated result of submitting a worksheet attempt. */
+export type SubmitQuizResult =
+  | {
+      ok: true;
+      score: number | null;
+      /** Hidden (null) until the teacher releases scores. */
+      total: number | null;
+      results: QuizResultItem[];
+      attempt_number: number;
+      attempts_used: number;
+      attempts_allowed: number | null;
+      can_retake: boolean;
+      effective_score: number | null;
+      retake_score_policy: RetakePolicy;
+      score_released: boolean;
+      answer_key_released: boolean;
+    }
+  | {
+      ok: false;
+      reason: "retakes_disabled" | "max_attempts";
+      attempts_used: number;
+      attempts_allowed: number | null;
+    };
+
+/** One student's row in the staff attempt roster for a worksheet. */
+export interface QuizAttemptRosterEntry {
+  student_id: string;
+  full_name: string;
+  student_no: string | null;
+  section: string | null;
+  attempts: Array<{
+    attempt_number: number;
+    score: number;
+    total: number;
+    tab_switches?: Array<{ at: number; type: string }>;
+  }>;
+  attempts_used: number;
+  extra_attempts: number;
+  effective_score: number | null;
+  effective_total: number | null;
+  /** Teacher manual override (supersedes the computed effective score). */
+  override_score?: number | null;
+  override_total?: number | null;
+  override_notes?: string | null;
+}
+
+export interface QuizAttemptRoster {
+  quiz: Pick<
+    Quiz,
+    "id" | "title" | "course_id" | "allow_retake" | "max_attempts" | "retake_score_policy"
+  >;
+  students: QuizAttemptRosterEntry[];
+}
+
+/* ---------- Grading (Attendance 10% / WW 20% / Periodical Exam 30% / PT 40%) ---------- */
+
+export const WEIGHTS = {
+  attendance: 0.1,
+  written_work: 0.2,
+  quarterly_exam: 0.3,
+  performance_task: 0.4,
+};
+
+// DepEd transmutation table (DO 8, s. 2015): [minInitial, transmuted]
+export const TRANSMUTATION_TABLE: Array<[number, number]> = [
+  [100, 100],
+  [98.4, 99],
+  [96.8, 98],
+  [95.2, 97],
+  [93.6, 96],
+  [92.0, 95],
+  [90.4, 94],
+  [88.8, 93],
+  [87.2, 92],
+  [85.6, 91],
+  [84.0, 90],
+  [82.4, 89],
+  [80.8, 88],
+  [79.2, 87],
+  [77.6, 86],
+  [76.0, 85],
+  [74.4, 84],
+  [72.8, 83],
+  [71.2, 82],
+  [69.6, 81],
+  [68.0, 80],
+  [66.4, 79],
+  [64.8, 78],
+  [63.2, 77],
+  [61.6, 76],
+  [60.0, 75],
+  [56.0, 74],
+  [52.0, 73],
+  [48.0, 72],
+  [44.0, 71],
+  [40.0, 70],
+  [36.0, 69],
+  [32.0, 68],
+  [28.0, 67],
+  [24.0, 66],
+  [20.0, 65],
+  [16.0, 64],
+  [12.0, 63],
+  [8.0, 62],
+  [4.0, 61],
+  [0, 60],
+];
+
+export function transmute(initial: number): number {
+  for (const [min, t] of TRANSMUTATION_TABLE) if (initial >= min) return t;
+  return 60;
+}
+
+/**
+ * Final Grade = (Attendance% × 0.10) + (WW% × 0.20) + (Periodical% × 0.30) + (PT% × 0.40)
+ * Returns null only when every component is missing.
+ */
+export function weightedInitial(
+  ww: number | null,
+  pt: number | null,
+  ex: number | null,
+  att: number | null = null,
+): number | null {
+  if (ww == null && pt == null && ex == null && att == null) return null;
+  return (
+    (att ?? 0) * WEIGHTS.attendance +
+    (ww ?? 0) * WEIGHTS.written_work +
+    (ex ?? 0) * WEIGHTS.quarterly_exam +
+    (pt ?? 0) * WEIGHTS.performance_task
+  );
+}
+
+/**
+ * Attendance component (0–100) from gate logs: each school day with an
+ * on-time or excused "in" scan scores 100; a late scan scores 85.
+ */
+export function attendancePercent(logs: AttendanceLog[]): number | null {
+  const ins = logs.filter((l) => l.scan_type === "in");
+  if (ins.length === 0) return null;
+  const total = ins.reduce((sum, l) => sum + (l.status === "late" ? 85 : 100), 0);
+  return Math.round((total / ins.length) * 10) / 10;
+}
+
+export function gradeRemarks(t: number): string {
+  if (t >= 90) return "Outstanding";
+  if (t >= 85) return "Very Satisfactory";
+  if (t >= 80) return "Satisfactory";
+  if (t >= 75) return "Fairly Satisfactory";
+  return "Did Not Meet Expectations";
+}
+
+export function initialOf(
+  g: Pick<
+    Grade,
+    "written_work_score" | "performance_task_score" | "exam_score" | "class_record_snapshot"
+  >,
+  att: number | null = null,
+) {
+  if (g.class_record_snapshot) return g.class_record_snapshot.initial;
+  return weightedInitial(g.written_work_score, g.performance_task_score, g.exam_score, att);
+}
+
+export function transmutedOf(
+  g: Pick<
+    Grade,
+    | "written_work_score"
+    | "performance_task_score"
+    | "exam_score"
+    | "transmuted_final_grade"
+    | "class_record_snapshot"
+  >,
+  att: number | null = null,
+) {
+  if (g.class_record_snapshot) return g.class_record_snapshot.final;
+  const initial = initialOf(g, att);
+  if (initial == null) return g.transmuted_final_grade;
+  return transmute(initial);
+}
+
+import { logAudit, SESSION_KEY, type AuditEntry } from "@/lib/settings";
+import { dbg, dbgError } from "@/lib/debug";
+import { COOKIE_SESSION_MARKER } from "@/lib/session";
+
+/* ---------- Session (signed server token in an HttpOnly cookie) ---------- */
+// Same-tab change signal — the browser "storage" event only fires across
+// tabs, so same-tab saves dispatch this custom event to wake subscribers.
+const PROFILE_EVENT = "ids-lms-profile-changed";
+
+export function loadSession(): Profile | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    const p = raw ? (JSON.parse(raw) as Profile) : null;
+    // Session credentials live in an HttpOnly cookie; the local profile is UI
+    // state only. Older token-bearing records are stripped on the next save.
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSession(p: Profile | null) {
+  if (p) {
+    const { session_token: _discarded, ...safeProfile } = p;
+    localStorage.setItem(SESSION_KEY, JSON.stringify(safeProfile));
+  } else localStorage.removeItem(SESSION_KEY);
+  notifyProfileChanged();
+}
+
+/**
+ * Merge fresh profile fields into the stored session and notify every
+ * subscriber — the global profile store update. Use this after any
+ * successful self-profile save so the sidebar/navbar re-render instantly.
+ */
+export function updateSessionProfile(patch: Partial<Profile>): Profile | null {
+  const current = loadSession();
+  if (!current) return null;
+  const next = { ...current, ...patch };
+  saveSession(next);
+  return next;
+}
+
+/**
+ * Subscribe to profile/session changes — fires on same-tab saves
+ * (saveSession/updateSessionProfile) and on other-tab writes via the
+ * browser "storage" event. Returns an unsubscribe function.
+ */
+export function subscribeProfile(listener: () => void): () => void {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === SESSION_KEY || e.key === null) listener();
+  };
+  window.addEventListener(PROFILE_EVENT, listener);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(PROFILE_EVENT, listener);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+function notifyProfileChanged() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(PROFILE_EVENT));
+}
+
+/** Auth marker for cookie-backed sessions; returns a legacy token during migration. */
+export function sessionToken(): string {
+  const profile = loadSession();
+  return profile ? (profile.session_token ?? COOKIE_SESSION_MARKER) : "";
+}
+
+/** Clear the HttpOnly session cookie and revoke the current server session. */
+export async function logout(): Promise<void> {
+  try {
+    await logoutFn({ data: { token: sessionToken() || COOKIE_SESSION_MARKER } });
+  } finally {
+    await clearLegacyNavigationCaches();
+  }
+}
+
+/**
+ * Claims refresh: re-fetch the caller's live profile from the server and
+ * merge it into the global session store, notifying every subscriber. This
+ * is how role changes made by an admin propagate to an already-signed-in
+ * user — guards re-evaluate on the merged role without a fresh sign-in.
+ * Transient failures keep the cached session.
+ */
+export async function refreshSessionProfile(): Promise<Profile | null> {
+  const current = loadSession();
+  if (!current) return null;
+  try {
+    const fresh = await refreshSessionFn({
+      data: { token: current.session_token ?? COOKIE_SESSION_MARKER },
+    });
+    if (!fresh) return null;
+    return updateSessionProfile(fresh);
+  } catch (e) {
+    // The server rejected the cached token (expired, revoked, or signed with a
+    // rotated secret). Keeping the dead session left the shell looking signed-in
+    // while every gated call failed — pages hung on their loading states with no
+    // error anywhere. Drop the session so useProfile's sync() redirects to
+    // sign-in and the user can recover. Only "Unauthorized" triggers this;
+    // transient failures keep the cached session.
+    if (e instanceof Error && e.message === "Unauthorized") saveSession(null);
+    return null;
+  }
+}
+
+/**
+ * Role-based landing route after RFID/PIN authentication:
+ * admin → Admin Console overview, teacher → course management (gradebook
+ * one tap away), student → the student dashboard.
+ */
+export function dashboardPathFor(role: Role) {
+  if (role === "admin") return "/dashboard/admin";
+  if (role === "teacher") return "/dashboard/admin/courses";
+  return "/dashboard/student";
+}
+
+/* ---------- API (server-function backed; tables are default-deny) ---------- */
+
+export async function findProfileByRfid(uid: string): Promise<Profile | null> {
+  const res = await getProfileByRfidFn({ data: { uid } });
+  return res ? res.profile : null;
+}
+
+export type PinLoginResult =
+  | { ok: true; profile: Profile }
+  | { ok: false; reason: "invalid" | "locked"; retryAfterMinutes?: number; attemptsLeft?: number };
+
+/**
+ * Unified sign-in for every role: identifier may be a student ID, email, or
+ * staff username; the secret may be a 4–6 digit PIN or a staff password.
+ * The server enforces a 5-attempt / 15-minute lockout on all accounts.
+ */
+export async function pinLogin(login: string, secret: string): Promise<PinLoginResult> {
+  dbg("lms", "pinLogin RPC call", { login, pinLoginFnDefined: typeof pinLoginFn });
+  if (!pinLoginFn) {
+    dbgError("lms", "pinLoginFn is undefined! Module import failed.");
+    throw new Error("pinLoginFn not loaded — server function module failed to initialize");
+  }
+  const res = (await pinLoginFn({ data: { login, secret } })) as
+    | { ok: true; profile: Profile }
+    | {
+        ok: false;
+        reason: "invalid" | "locked";
+        retryAfterMinutes?: number;
+        attemptsLeft?: number;
+      };
+  dbg("lms", "pinLogin RPC response", {
+    ok: res.ok,
+    reason: "reason" in res ? res.reason : undefined,
+  });
+  if (res.ok) return { ok: true, profile: res.profile };
+  return res;
+}
+
+// Legacy call shape retained for the settings "confirm current PIN" flow.
+export async function findProfileByCredential(login: string, pin: string): Promise<Profile | null> {
+  const res = await pinLogin(login, pin);
+  return res.ok ? res.profile : null;
+}
+
+export async function createProfile(input: Partial<Profile>): Promise<Profile> {
+  return createProfileFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  });
+}
+
+export async function updateProfile(id: string, patch: Partial<Profile>): Promise<void> {
+  await updateProfileFn({
+    data: { id, patch: patch as Record<string, unknown>, token: sessionToken() },
+  });
+}
+
+/**
+ * Self-service PIN change for the signed-in user (all roles). Proves identity
+ * with the session and optionally the current PIN, validates the new PIN
+ * against the existing format rules, and clears the forced-change gate
+ * (pin_must_change) on the server. The returned record is merged into the
+ * global session store so the PIN gate closes without a page refresh.
+ */
+export async function changeOwnPin(currentPin: string | null, newPin: string): Promise<Profile> {
+  const updated = (await changeOwnPinFn({
+    data: { token: sessionToken(), current_pin: currentPin, new_pin: newPin },
+  })) as Profile;
+  updateSessionProfile({
+    pin_must_change: updated.pin_must_change ?? false,
+    has_pin: updated.has_pin ?? true,
+  });
+  return updated;
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read the selected file"));
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Avatar upload pipeline: the file is written to private storage and
+ * profiles.avatar_url is updated in the SAME server call. The returned
+ * record carries the new versioned path (visible in the network payload),
+ * and the global session store is refreshed so the sidebar/navbar/chat
+ * avatar re-renders immediately — no browser refresh needed.
+ */
+export async function uploadAvatar(file: File): Promise<Profile> {
+  const data = await fileToBase64(file);
+  const updated = await uploadAvatarFn({
+    data: {
+      token: sessionToken(),
+      data,
+      content_type: file.type as "image/png" | "image/jpeg" | "image/webp" | "image/gif",
+    },
+  });
+  if (!updated?.avatar_url) throw new Error("Upload failed — no avatar URL returned");
+  updateSessionProfile({ avatar_url: updated.avatar_url });
+  return updated;
+}
+
+/**
+ * Teacher self-service settings save (teacher-only server guard). On success
+ * the returned record is merged into the global session store so the sidebar
+ * pill, header, and chat widget re-render instantly — no page refresh.
+ */
+export async function updateTeacherSettings(patch: {
+  full_name?: string;
+  email?: string | null;
+  avatar_url?: string | null;
+  prefix?: string | null;
+  department?: string | null;
+  phone?: string | null;
+  bio?: string | null;
+  office_hours?: string | null;
+  pin?: string | null;
+  rfid_uid?: string | null;
+}): Promise<Profile> {
+  const updated = (await updateTeacherSettingsFn({
+    data: { patch: patch as Record<string, unknown>, token: sessionToken() },
+  })) as Profile;
+  updateSessionProfile({
+    full_name: updated.full_name,
+    email: updated.email,
+    avatar_url: updated.avatar_url,
+    prefix: updated.prefix,
+    department: updated.department,
+    phone: updated.phone,
+    bio: updated.bio,
+    office_hours: updated.office_hours,
+    has_pin: updated.has_pin ?? false,
+    has_rfid: updated.has_rfid ?? false,
+  });
+  return updated;
+}
+
+/** Admin-only soft delete — returns how many course leads were unassigned. */
+export async function deleteProfile(id: string): Promise<{ unassignedCourses: number }> {
+  return (await deleteProfileFn({ data: { id, token: sessionToken() } })) as {
+    unassignedCourses: number;
+  };
+}
+
+export async function listAnnouncements(): Promise<Announcement[]> {
+  return listAnnouncementsFn();
+}
+
+export async function createAnnouncement(input: Partial<Announcement>): Promise<string> {
+  return (await createAnnouncementFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  })) as string;
+}
+
+export async function updateAnnouncement(id: string, patch: Partial<Announcement>): Promise<void> {
+  await updateAnnouncementFn({
+    data: { id, patch: patch as Record<string, unknown>, token: sessionToken() },
+  });
+}
+
+export async function deleteAnnouncement(id: string): Promise<void> {
+  await deleteAnnouncementFn({ data: { id, token: sessionToken() } });
+}
+
+export async function listAnnouncementAttachments(
+  announcementId: string,
+): Promise<AnnouncementAttachment[]> {
+  return listAnnouncementAttachmentsFn({
+    data: { id: announcementId, token: sessionToken() },
+  }) as Promise<AnnouncementAttachment[]>;
+}
+
+export type FeedbackReport = {
+  id: string;
+  reporter_id: string;
+  reporter_name: string | null;
+  reporter_role: Role | null;
+  reporter_email: string | null;
+  category: "bug" | "issue" | "feedback" | "course_content" | "other";
+  subject: string;
+  description: string;
+  page_url: string | null;
+  status: "open" | "in_review" | "resolved" | "closed";
+  admin_note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listFeedbackReports(): Promise<FeedbackReport[]> {
+  return listFeedbackReportsFn({ data: { token: sessionToken() } }) as Promise<FeedbackReport[]>;
+}
+
+export async function createFeedbackReport(input: {
+  category: FeedbackReport["category"];
+  subject: string;
+  description: string;
+  page_url?: string | null;
+}): Promise<FeedbackReport> {
+  return createFeedbackReportFn({
+    data: { ...input, token: sessionToken() },
+  }) as Promise<FeedbackReport>;
+}
+
+export async function updateFeedbackReport(
+  id: string,
+  patch: Partial<Pick<FeedbackReport, "status" | "admin_note">>,
+): Promise<void> {
+  await updateFeedbackReportFn({ data: { id, patch, token: sessionToken() } });
+}
+
+export async function uploadAnnouncementMaterial(
+  announcementId: string,
+  file: File,
+): Promise<AnnouncementAttachment> {
+  const data = await fileToBase64(file);
+  return uploadAnnouncementMaterialFn({
+    data: {
+      announcement_id: announcementId,
+      name: file.name,
+      data,
+      content_type: file.type || "application/octet-stream",
+      token: sessionToken(),
+    },
+  }) as Promise<AnnouncementAttachment>;
+}
+
+export async function removeAnnouncementMaterial(attachmentId: string): Promise<void> {
+  await removeAnnouncementMaterialFn({
+    data: { attachment_id: attachmentId, token: sessionToken() },
+  });
+}
+
+export async function listCourses(): Promise<Course[]> {
+  return listCoursesFn({ data: { token: sessionToken() } });
+}
+
+export async function createCourse(input: Partial<Course>): Promise<void> {
+  await createCourseFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  });
+}
+
+export async function updateCourse(id: string, patch: Partial<Course>): Promise<void> {
+  await updateCourseFn({
+    data: { id, patch: patch as Record<string, unknown>, token: sessionToken() },
+  });
+}
+
+export async function deleteCourse(id: string): Promise<void> {
+  await deleteCourseFn({ data: { id, token: sessionToken() } });
+}
+
+export async function listAssignments(): Promise<Assignment[]> {
+  return listAssignmentsFn({ data: { token: sessionToken() } });
+}
+
+export async function createAssignment(input: Partial<Assignment>): Promise<void> {
+  await createAssignmentFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  });
+  notifyTasksChanged();
+}
+
+// Activity aliases — pedagogical rename, DB stays `assignments`
+export const listActivities = listAssignments;
+export const createActivity = createAssignment;
+
+export async function listSubmissionsForStudent(studentId: string): Promise<Submission[]> {
+  return listSubmissionsForStudentFn({ data: { studentId, token: sessionToken() } });
+}
+
+export async function submitAssignment(input: Partial<Submission>): Promise<{ id: string }> {
+  const result = (await submitAssignmentFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  })) as { id: string };
+  notifyTasksChanged();
+  return result;
+}
+
+/** Upload one file to a submission and get back its metadata record. */
+export async function uploadSubmissionFile(submissionId: string, file: File): Promise<Attachment> {
+  const data = await fileToBase64(file);
+  return uploadSubmissionFileFn({
+    data: {
+      submission_id: submissionId,
+      name: file.name,
+      data,
+      content_type: file.type || "application/octet-stream",
+      token: sessionToken(),
+    },
+  }) as Promise<Attachment>;
+}
+
+/** Staff: every submission on an assignment (scores, answers, files). */
+export async function listSubmissionsForAssignment(
+  assignmentId: string,
+): Promise<AssignmentSubmission[]> {
+  return listSubmissionsForAssignmentFn({
+    data: { assignmentId, token: sessionToken() },
+  }) as Promise<AssignmentSubmission[]>;
+}
+
+/** Teacher: manually grade an assignment submission. */
+export async function gradeSubmission(
+  id: string,
+  patch: {
+    score: number | null;
+    feedback: string | null;
+    status?: "pending" | "submitted" | "graded";
+  },
+): Promise<void> {
+  await gradeSubmissionFn({ data: { id, patch, token: sessionToken() } });
+  notifyTasksChanged();
+}
+
+export async function listQuizzes(): Promise<Quiz[]> {
+  return listQuizzesFn({ data: { token: sessionToken() } });
+}
+
+export async function getQuiz(
+  id: string,
+): Promise<{ quiz: Quiz; questions: QuizQuestionPublic[] }> {
+  return getQuizFn({ data: { id, token: sessionToken() } });
+}
+
+export async function submitQuizAnswers(
+  quizId: string,
+  answers: Record<string, string>,
+  questionIds?: string[],
+  tabSwitches?: Array<{ at: number; type: IntegrityEventType }>,
+  submissionId?: string,
+): Promise<SubmitQuizResult> {
+  const result = await submitQuizAttemptFn({
+    data: {
+      quiz_id: quizId,
+      answers,
+      token: sessionToken(),
+      question_ids: questionIds,
+      tab_switches: tabSwitches,
+      submission_id: submissionId,
+    },
+  });
+  if (result.ok) notifyTasksChanged();
+  return result;
+}
+
+/** Attempt summaries for every worksheet, for the signed-in student. */
+export async function myQuizSummaries(): Promise<QuizAttemptSummary[]> {
+  return myQuizSummariesFn({ data: { token: sessionToken() } });
+}
+
+export async function getQuizAttemptInfo(quizId: string): Promise<QuizAttemptInfo> {
+  return quizAttemptInfoFn({ data: { quiz_id: quizId, token: sessionToken() } });
+}
+
+export async function requestWorksheetRetake(quizId: string): Promise<{ status: "pending" }> {
+  const result = await requestQuizRetakeFn({ data: { quiz_id: quizId, token: sessionToken() } });
+  notifyTasksChanged();
+  return result;
+}
+
+export async function listWorksheetRetakeRequests(quizId: string): Promise<QuizRetakeRequest[]> {
+  return listQuizRetakeRequestsFn({ data: { quiz_id: quizId, token: sessionToken() } });
+}
+
+export async function reviewWorksheetRetakeRequest(
+  requestId: string,
+  decision: "approved" | "denied",
+): Promise<void> {
+  await reviewQuizRetakeRequestFn({
+    data: { request_id: requestId, decision, token: sessionToken() },
+  });
+}
+
+/* ---------- Retake policy management (staff) ---------- */
+
+export async function updateQuizRetakePolicy(
+  id: string,
+  patch: { allow_retake: boolean; max_attempts: number; retake_score_policy: RetakePolicy },
+): Promise<void> {
+  await updateQuizRetakePolicyFn({ data: { id, ...patch, token: sessionToken() } });
+}
+
+export async function listQuizAttempts(quizId: string): Promise<QuizAttemptRoster> {
+  return listQuizAttemptsFn({ data: { quiz_id: quizId, token: sessionToken() } });
+}
+
+/** Grant one extra attempt (stackable) to a student on a worksheet. */
+export async function grantQuizRetake(quizId: string, studentId: string): Promise<void> {
+  await grantQuizRetakeFn({
+    data: { quiz_id: quizId, student_id: studentId, token: sessionToken() },
+  });
+}
+
+/** Wipe a student's attempt history (and grant) so they can start fresh. */
+export async function resetQuizAttempts(quizId: string, studentId: string): Promise<void> {
+  await resetQuizAttemptsFn({
+    data: { quiz_id: quizId, student_id: studentId, token: sessionToken() },
+  });
+}
+
+/** Teacher override of a student's effective worksheet score. */
+export async function overrideQuizAttempt(
+  quizId: string,
+  studentId: string,
+  score: number | null,
+  total: number | null,
+  notes: string | null,
+): Promise<void> {
+  await overrideAttemptFn({
+    data: {
+      quiz_id: quizId,
+      student_id: studentId,
+      score,
+      total,
+      notes,
+      token: sessionToken(),
+    },
+  });
+}
+
+/** Per-question attempt detail for one student on one worksheet. */
+export async function listStudentAttemptDetail(
+  quizId: string,
+  studentId: string,
+): Promise<AttemptDetail> {
+  return listStudentAttemptDetailFn({
+    data: { quiz_id: quizId, student_id: studentId, token: sessionToken() },
+  }) as Promise<AttemptDetail>;
+}
+
+export type QuizCourseScore = {
+  quiz_id: string;
+  title: string;
+  scores: Record<string, { score: number; total: number }>;
+};
+
+export async function listQuizScoresForCourse(courseId: string): Promise<QuizCourseScore[]> {
+  return listQuizScoresForCourseFn({ data: { courseId, token: sessionToken() } });
+}
+
+export async function createQuizWithQuestions(
+  quiz: Partial<Quiz>,
+  questions: Array<Partial<QuizQuestion>>,
+): Promise<void> {
+  await createQuizWithQuestionsFn({
+    data: { quiz, questions, token: sessionToken() } as Record<string, unknown>,
+  });
+}
+
+export async function listGradesForStudent(studentId: string): Promise<Grade[]> {
+  return listGradesForStudentFn({ data: { studentId, token: sessionToken() } });
+}
+
+export async function listGradesForCourse(courseId: string, quarter: number): Promise<Grade[]> {
+  return listGradesForCourseFn({ data: { courseId, quarter, token: sessionToken() } });
+}
+
+export async function upsertGrade(input: Partial<Grade>): Promise<void> {
+  await upsertGradeFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  });
+}
+
+export async function listStudents(): Promise<Profile[]> {
+  return listStudentsFn({ data: { token: sessionToken() } });
+}
+
+export async function listStaff(): Promise<Profile[]> {
+  return listStaffFn({ data: { token: sessionToken() } });
+}
+
+/** Teaching roster only (role === 'teacher') for course-lead pickers. */
+export async function listTeachers(): Promise<Profile[]> {
+  return listTeachersFn({ data: { token: sessionToken() } });
+}
+
+/** Admin-only faculty directory (teacher profiles + the courses they lead). */
+export async function listTeacherDirectory(): Promise<TeacherRecord[]> {
+  return (await listTeacherDirectoryFn({ data: { token: sessionToken() } })) as TeacherRecord[];
+}
+
+/** Admin-only faculty creation. role='teacher' and PIN hashing are server-side. */
+export async function createTeacher(input: {
+  full_name: string;
+  prefix?: string | null;
+  email: string;
+  employee_id: string;
+  department: string;
+  pin: string;
+  rfid_uid?: string | null;
+}): Promise<TeacherRecord> {
+  return (await createTeacherFn({
+    data: { ...input, token: sessionToken() } as Record<string, unknown>,
+  })) as TeacherRecord;
+}
+
+/**
+ * Register or clear an RFID card. Admins may enroll any account
+ * (admin-assisted registration); everyone else only their own record.
+ */
+export async function enrollBiometrics(
+  id: string,
+  fields: { rfid_uid?: string | null },
+): Promise<Profile> {
+  return (await enrollBiometricsFn({
+    data: { id, ...fields, token: sessionToken() } as Record<string, unknown>,
+  })) as Profile;
+}
+
+/** Full user directory (admin-only) for the Users & Roles console. */
+export async function listAllUsers(): Promise<Profile[]> {
+  return listAllUsersFn({ data: { token: sessionToken() } });
+}
+
+export interface RoleChangeResult {
+  profile: Profile;
+  /** Course leads cleared when a teacher/admin was demoted to student. */
+  unassignedCourses: number;
+}
+
+/** Admin-only role reassignment with server-side transition safeguards. */
+export async function updateUserRole(id: string, role: Role): Promise<RoleChangeResult> {
+  return updateUserRoleFn({ data: { id, role, token: sessionToken() } });
+}
+
+export async function listAttendance(studentId: string): Promise<AttendanceLog[]> {
+  return listAttendanceFn({ data: { studentId, token: sessionToken() } });
+}
+
+export async function listAllAttendance(limitN = 100): Promise<AttendanceLog[]> {
+  return listAllAttendanceFn({ data: { limit: limitN, token: sessionToken() } });
+}
+
+export async function logAttendance(
+  student_id: string,
+  scan_type: "in" | "out",
+  status: AttendanceStatus,
+  timestamp?: string | undefined,
+  course_id?: string | null | undefined,
+): Promise<void> {
+  await logAttendanceFn({
+    data: { student_id, scan_type, status, timestamp, course_id, token: sessionToken() },
+  });
+}
+
+export async function bulkLogAttendance(
+  items: Array<{
+    student_id: string;
+    scan_type: "in" | "out";
+    status: AttendanceStatus;
+    timestamp?: string | undefined;
+    course_id?: string | null | undefined;
+  }>,
+): Promise<{ count: number }> {
+  return bulkLogAttendanceFn({ data: { items, token: sessionToken() } });
+}
+
+/** Submit a reader tap; the server toggles in/out and evaluates the status
+ * against the tapped person's class schedule. Returns null for unknown cards. */
+export async function recordTap(payload: TapPayload): Promise<TapResult | null> {
+  return recordTapFn({
+    data: { uid: payload.uid, at: payload.timestamp, token: sessionToken() },
+  }) as Promise<TapResult | null>;
+}
+
+/* ---------- RFID devices (kiosk readers) ---------- */
+
+export interface RfidDevice {
+  id: string;
+  name: string;
+  location: string | null;
+  key_prefix: string;
+  is_active: boolean;
+  last_seen_at: string | null;
+  status: "online" | "offline";
+  created_at: string;
+}
+
+export async function listRfidDevices(): Promise<RfidDevice[]> {
+  return listRfidDevicesFn({ data: { token: sessionToken() } });
+}
+
+/** Register a device — the raw api_key is returned exactly once. */
+export async function createRfidDevice(input: {
+  name: string;
+  location?: string | null;
+}): Promise<{ id: string; name: string; key_prefix: string; api_key: string }> {
+  return createRfidDeviceFn({
+    data: { name: input.name, location: input.location ?? null, token: sessionToken() },
+  });
+}
+
+export async function deactivateRfidDevice(id: string): Promise<void> {
+  await deactivateRfidDeviceFn({ data: { id, token: sessionToken() } });
+}
+
+export async function updateAttendanceLog(
+  id: string,
+  patch: { status?: AttendanceStatus; scan_type?: "in" | "out" },
+): Promise<void> {
+  await updateAttendanceLogFn({ data: { id, patch, token: sessionToken() } });
+}
+
+export async function deleteAttendanceLog(id: string): Promise<void> {
+  await deleteAttendanceLogFn({ data: { id, token: sessionToken() } });
+}
+
+export async function enrollmentsForCourse(courseId: string): Promise<string[]> {
+  return enrollmentsForCourseFn({ data: { courseId, token: sessionToken() } });
+}
+
+export async function enrollmentsForStudent(studentId: string): Promise<string[]> {
+  return enrollmentsForStudentFn({ data: { studentId, token: sessionToken() } });
+}
+
+export async function enrollStudent(student_id: string, course_id: string): Promise<void> {
+  await enrollStudentFn({ data: { student_id, course_id, token: sessionToken() } });
+}
+
+/** Enroll many students into one course in a single batched server call. */
+export async function enrollStudents(
+  student_ids: string[],
+  course_id: string,
+): Promise<{ enrolled: number }> {
+  return enrollStudentsFn({ data: { student_ids, course_id, token: sessionToken() } });
+}
+
+/**
+ * Create a new student OR reuse an existing one (matched by student number,
+ * then email) and optionally enroll them into a course. Staff-only.
+ */
+export async function createOrEnrollStudent(
+  input: StudentEnrollInput,
+  courseId?: string | null,
+): Promise<{ profile: Profile; created: boolean; enrolled: boolean }> {
+  return createOrEnrollStudentFn({
+    data: {
+      ...(input as object),
+      course_id: courseId ?? null,
+      token: sessionToken(),
+    } as Record<string, unknown>,
+  }) as Promise<{ profile: Profile; created: boolean; enrolled: boolean }>;
+}
+
+/**
+ * Bulk roster import: create-or-enroll a whole pasted class list in one call,
+ * optionally into a course and one of its meetings (lecture/lab). Per-row
+ * outcomes come back so the UI can report added / linked / failed clearly.
+ */
+export async function bulkAddStudents(
+  students: BulkStudentRow[],
+  options: { courseId?: string | null; meetingId?: string | null } = {},
+): Promise<BulkAddResult> {
+  const result = (await bulkAddStudentsFn({
+    data: {
+      students,
+      course_id: options.courseId ?? null,
+      meeting_id: options.meetingId ?? null,
+      token: sessionToken(),
+    },
+  })) as BulkAddResult;
+  return result;
+}
+
+export async function countRows(table: string): Promise<number> {
+  return countRowsFn({
+    data: { table: table as unknown as Record<string, unknown>, token: sessionToken() },
+  });
+}
+
+/* ---------- App settings (school-wide admin flags) ---------- */
+
+/** Is app-wide kiosk lockdown on for student sessions? */
+export async function getKioskLockdown(): Promise<boolean> {
+  return getKioskLockdownFn({ data: { token: sessionToken() } });
+}
+
+/** Admin toggle for app-wide kiosk lockdown. */
+export async function setKioskLockdown(enabled: boolean): Promise<boolean> {
+  return setKioskLockdownFn({ data: { enabled, token: sessionToken() } });
+}
+
+/* ---------- Misc helpers ---------- */
+
+export function attendanceStreak(logs: AttendanceLog[]): number {
+  const days = new Set(
+    logs.filter((l) => l.scan_type === "in").map((l) => new Date(l.timestamp).toDateString()),
+  );
+  let streak = 0;
+  const cursor = new Date();
+  // Allow the streak to start today or the previous school day
+  if (!days.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
+  for (let i = 0; i < 60; i++) {
+    const dow = cursor.getDay();
+    if (dow !== 0 && dow !== 6) {
+      if (!days.has(cursor.toDateString())) break;
+      streak++;
+    }
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+export function daysUntil(iso: string | null): string {
+  if (!iso) return "No due date";
+  const ms = new Date(iso).getTime() - Date.now();
+  const days = Math.ceil(ms / 86400000);
+  if (days < 0) return "Overdue";
+  if (days === 0) return "Due today";
+  if (days === 1) return "Due tomorrow";
+  return `Due in ${days} days`;
+}
+
+export function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function fmtDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+}
+
+export const COMPONENT_LABELS: Record<Assignment["component_type"], string> = {
+  written_work: "Written Work",
+  performance_task: "Performance Task",
+  quarterly_exam: "Quarterly Exam",
+};
+
+/* ---------- Course materials, editing & deletion (staff) ---------- */
+
+/**
+ * Signed-in download link for a stored handout. The media route requires a
+ * valid session token — prefer `Authorization: Bearer <token>` header to avoid
+ * token leakage in logs. The `&t=` query is deprecated fallback kept only for
+ * backward compat (e.g. <a href> links); new fetch code should use
+ * `materialHeaders()` instead.
+ */
+export function materialHref(a: Attachment): string {
+  // Deprecated query-param path — kept for <a href>/<img src> compat.
+  // Preferred: fetch(a.url, { headers: materialHeaders() })
+  return `${a.url}&t=${encodeURIComponent(sessionToken())}`;
+}
+
+/** Headers for authenticated material fetch (preferred over ?t= query). */
+export function materialHeaders(): Record<string, string> {
+  const t = sessionToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+/** Human-readable file size for attachment chips. */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Upload one handout for a course and get back its metadata record. */
+export async function uploadCourseMaterial(courseId: string, file: File): Promise<Attachment> {
+  const data = await fileToBase64(file);
+  return uploadCourseMaterialFn({
+    data: {
+      course_id: courseId,
+      name: file.name,
+      data,
+      content_type: file.type || "application/octet-stream",
+      token: sessionToken(),
+    },
+  }) as Promise<Attachment>;
+}
+
+export async function attachCourseMaterial(
+  target: "quiz" | "assignment",
+  id: string,
+  attachment: Attachment,
+): Promise<Attachment[]> {
+  return attachCourseMaterialFn({
+    data: { target, id, attachment, token: sessionToken() },
+  }) as Promise<Attachment[]>;
+}
+
+export async function removeCourseMaterial(
+  target: "quiz" | "assignment",
+  id: string,
+  path: string,
+): Promise<Attachment[]> {
+  return removeCourseMaterialFn({
+    data: { target, id, path, token: sessionToken() },
+  }) as Promise<Attachment[]>;
+}
+
+/** Edit a worksheet. Passing `questions` replaces the item set + answer key. */
+export async function updateQuiz(
+  id: string,
+  patch: {
+    title?: string;
+    duration_minutes?: number;
+    question_count?: number;
+    allow_retake?: boolean;
+    max_attempts?: number;
+    retake_score_policy?: RetakePolicy;
+    attachments?: Attachment[];
+    opens_at?: string | null;
+    closes_at?: string | null;
+    score_released?: boolean;
+    answer_key_released?: boolean;
+  },
+  questions?: Array<{ question: string; options: string[]; correct_answer: string }>,
+): Promise<void> {
+  await updateQuizFn({
+    data: { id, patch, questions, token: sessionToken() } as Record<string, unknown>,
+  });
+  notifyTasksChanged();
+}
+
+/** Soft delete keeps attempts/grades; hard delete also purges attached files. */
+export async function deleteQuiz(id: string, mode: "soft" | "hard" = "soft"): Promise<void> {
+  await deleteQuizFn({ data: { id, mode, token: sessionToken() } });
+  notifyTasksChanged();
+}
+
+export async function updateAssignment(
+  id: string,
+  patch: Partial<
+    Pick<
+      Assignment,
+      | "title"
+      | "description"
+      | "due_date"
+      | "total_points"
+      | "component_type"
+      | "attachments"
+      | "opens_at"
+      | "closes_at"
+    >
+  >,
+): Promise<void> {
+  await updateAssignmentFn({
+    data: { id, patch: patch as Record<string, unknown>, token: sessionToken() },
+  });
+  notifyTasksChanged();
+}
+
+export async function deleteAssignment(id: string, mode: "soft" | "hard" = "soft"): Promise<void> {
+  await deleteAssignmentFn({ data: { id, mode, token: sessionToken() } });
+  notifyTasksChanged();
+}
+
+/* ---------- Course Meetings & Timetable ---------- */
+
+export async function listCourseMeetings(courseId: string): Promise<CourseMeeting[]> {
+  return (await listCourseMeetingsFn({
+    data: { courseId, token: sessionToken() },
+  })) as CourseMeeting[];
+}
+
+export async function upsertCourseMeeting(input: {
+  id?: string;
+  course_id: string;
+  kind: "lecture" | "lab";
+  label: string;
+  days_of_week: string[];
+  start_time: string;
+  end_time: string;
+  capacity?: number | null;
+  sort_order?: number;
+}): Promise<CourseMeeting> {
+  const res = (await upsertCourseMeetingFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  })) as CourseMeeting;
+  return res;
+}
+
+export async function deleteCourseMeeting(id: string): Promise<void> {
+  await deleteCourseMeetingFn({
+    data: { id, token: sessionToken() },
+  });
+}
+
+export async function setMeetingMembers(meetingId: string, studentIds: string[]): Promise<void> {
+  await setMeetingMembersFn({
+    data: { meeting_id: meetingId, student_ids: studentIds, token: sessionToken() } as Record<
+      string,
+      unknown
+    >,
+  });
+}
+
+export async function listMeetingMembers(meetingId: string): Promise<string[]> {
+  return (await listMeetingMembersFn({
+    data: { id: meetingId, token: sessionToken() },
+  })) as string[];
+}
+
+/* ---------- Sections & Course Sections ---------- */
+
+export async function listSections(): Promise<Section[]> {
+  return (await listSectionsFn({
+    data: { token: sessionToken() },
+  })) as Section[];
+}
+
+export async function createSection(input: {
+  name: string;
+  education_level: "jhs" | "shs" | "college";
+}): Promise<Section> {
+  const res = (await createSectionFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  })) as Section;
+  return res;
+}
+
+export async function listCourseSections(courseId: string): Promise<CourseSection[]> {
+  return (await listCourseSectionsFn({
+    data: { courseId, token: sessionToken() },
+  })) as CourseSection[];
+}
+
+export async function setCourseSections(courseId: string, sectionIds: string[]): Promise<void> {
+  await setCourseSectionsFn({
+    data: { course_id: courseId, section_ids: sectionIds, token: sessionToken() } as Record<
+      string,
+      unknown
+    >,
+  });
+}
+
+export interface SectionEnrollResult {
+  enrolled: number;
+  candidates: number;
+  sections: number;
+}
+
+/** Bulk section enrollment — enroll every student of the given sections into a course. */
+export async function enrollSectionStudents(
+  courseId: string,
+  sectionIds: string[],
+): Promise<SectionEnrollResult> {
+  const result = (await enrollSectionStudentsFn({
+    data: { course_id: courseId, section_ids: sectionIds, token: sessionToken() } as Record<
+      string,
+      unknown
+    >,
+  })) as SectionEnrollResult;
+  return result;
+}
+
+/** Shape of an audit_logs row as returned over the RPC boundary. */
+type AuditLogRowDto = {
+  id: string;
+  actor_name: string | null;
+  actor_role: string;
+  action: string;
+  detail: string;
+  created_at: string;
+};
+
+/**
+ * Server-backed audit trail (authoritative, cross-browser), mapped to the
+ * AuditEntry shape the settings Logs tab renders. Staff-only on the server.
+ */
+export async function listAuditLogs(): Promise<AuditEntry[]> {
+  const rows = (await listAuditLogsFn({ data: { token: sessionToken() } })) as AuditLogRowDto[];
+  return rows.map((r) => ({
+    id: r.id,
+    actor: r.actor_name ?? "System",
+    role: r.actor_role,
+    action: r.action,
+    detail: r.detail,
+    at: r.created_at,
+  }));
+}
+
+/* ---------- TOS (Table of Specifications) ---------- */
+
+/** Bloom's taxonomy levels allowed for a TOS item. */
+export type CognitiveLevel =
+  "remembering" | "understanding" | "applying" | "analyzing" | "evaluating" | "creating";
+
+/** One entry of a TOS item list (stored as jsonb on tos.items). */
+export type TosItem = {
+  topic: string;
+  no_of_items: number;
+  cognitive_level: CognitiveLevel;
+  quiz_id: string | null;
+  note: string | null;
+};
+
+/** A Table of Specifications row — one per (course, quarter). */
+export interface Tos {
+  id: string;
+  course_id: string;
+  quarter: number;
+  title: string | null;
+  items: TosItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+/** All TOS rows for a course, ordered by quarter. Staff-only. */
+export async function listCourseTos(courseId: string): Promise<Tos[]> {
+  return (await listCourseTosFn({ data: { courseId, token: sessionToken() } })) as Tos[];
+}
+
+/**
+ * Create or update one TOS row — upserts on (courseId, quarter) when no id is
+ * given. `items` replaces the stored item set wholesale. Staff-only.
+ */
+export async function upsertTos(input: {
+  id?: string;
+  courseId: string;
+  quarter: number;
+  title?: string | null;
+  items: TosItem[];
+}): Promise<Tos> {
+  return (await upsertTosFn({
+    data: { ...(input as object), token: sessionToken() } as Record<string, unknown>,
+  })) as Tos;
+}
+
+/** Delete a whole TOS row. Staff-only. */
+export async function deleteTos(id: string): Promise<void> {
+  await deleteTosFn({ data: { id, token: sessionToken() } });
+}
+
+/* ---------- Question bank ---------- */
+
+/** A quiz question with course context, as seen by the staff question bank. */
+export interface QuestionBankQuestion {
+  id: string;
+  quiz_id: string;
+  course_id: string;
+  course_code: string | null;
+  question: string;
+  options: string[];
+  correct_answer: string;
+  position: number;
+  image_url: string | null;
+  lab_task: boolean;
+  required: boolean;
+  question_type?: import("@/lib/question-types").QuestionType | null;
+  created_at: string;
+  /** Worksheet context (question_bank view) — title/ordering/soft-delete state. */
+  quiz_title: string | null;
+  quiz_created_at: string | null;
+  quiz_deleted_at: string | null;
+}
+
+/** Partial edit for one quiz question. Staff-only. */
+export type QuestionBankPatch = {
+  question?: string;
+  options?: string[];
+  correct_answer?: string;
+  lab_task?: boolean;
+  required?: boolean;
+  image_url?: string | null;
+};
+
+/** Question-bank rows (includes answer keys). Pass courseId to scope, omit for all. */
+export async function listQuestionBank(courseId?: string | null): Promise<QuestionBankQuestion[]> {
+  return (await listQuestionBankFn({
+    data: { courseId: courseId ?? null, token: sessionToken() },
+  })) as QuestionBankQuestion[];
+}
+
+/** Edit one quiz question in place (only provided fields are written). */
+export async function updateQuestion(
+  id: string,
+  patch: QuestionBankPatch,
+): Promise<QuestionBankQuestion> {
+  return (await updateQuestionFn({
+    data: { id, patch, token: sessionToken() } as Record<string, unknown>,
+  })) as QuestionBankQuestion;
+}
+
+export async function getPendingTasks(): Promise<PendingTaskCounts> {
+  return pendingTasksFn({ data: { token: sessionToken() } });
+}
+
+export async function getClassRecord(courseId: string, quarter: number) {
+  return getClassRecordFn({ data: { courseId, quarter, token: sessionToken() } });
+}
+export async function saveClassRecord(input: {
+  courseId: string;
+  quarter: number;
+  revision: number;
+  draft: import("./class-record").RecordDraft;
+  publishIds: string[];
+}) {
+  return saveClassRecordFn({ data: { ...input, token: sessionToken() } });
+}
+
+export async function reviewAttemptQuestion(input: {
+  quizId: string;
+  attemptId: string;
+  questionId: string;
+  correct: boolean;
+  expected: boolean;
+  reason: string;
+}) {
+  return reviewAttemptQuestionFn({ data: { ...input, token: sessionToken() } });
+}
+export async function previewIdentificationRegrade(quizId: string) {
+  return previewIdentificationRegradeFn({ data: { quizId, token: sessionToken() } });
+}
