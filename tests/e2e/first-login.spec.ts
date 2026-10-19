@@ -122,6 +122,38 @@ describeLocal("temporary PIN onboarding for every role", () => {
             { username, temporary, chosen },
           ),
         ).toBe(true);
+
+        if (role === "admin") {
+          // Simulate a role change without revoking the token: authorization
+          // must use the profile's current database role on every request.
+          await pool.query("UPDATE profiles SET role='teacher' WHERE id=$1", [profileId]);
+          expect(
+            await page.evaluate(async () => {
+              const lms = await import("/src/lib/lms.ts");
+              try {
+                await lms.listAllUsers();
+                return false;
+              } catch (error) {
+                return error instanceof Error && error.message === "Forbidden";
+              }
+            }),
+          ).toBe(true);
+        }
+
+        // Soft deletion must block an already-issued session even when its
+        // JTI has not separately been revoked.
+        await pool.query("UPDATE profiles SET deleted_at=now() WHERE id=$1", [profileId]);
+        expect(
+          await page.evaluate(async () => {
+            const lms = await import("/src/lib/lms.ts");
+            try {
+              await lms.listCourses();
+              return false;
+            } catch (error) {
+              return error instanceof Error && error.message === "Unauthorized";
+            }
+          }),
+        ).toBe(true);
       } finally {
         await secondaryContext?.close();
         if (profileId) {
