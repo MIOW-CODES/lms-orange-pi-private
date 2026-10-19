@@ -357,7 +357,79 @@ Before activating it on the production Pi:
    '
    ```
 
-   Configure the runner only after resource and isolation checks. The `config.sh` CLI requires the token as an argument, so the token is briefly visible in the configuration process arguments even when shell history and terminal echo are disabled. Because the Pi has multiple local accounts, do this only while no untrusted users can inspect processes; if that cannot be assured, pause registration until process visibility is restricted or use a separate host. Open a `gha-runner` shell, disable history and xtrace, use `read -rs` for the fresh token, run `./config.sh --unattended --url https://github.com/MIOW-CODES/lms-orange-pi-private --token "$RUNNER_TOKEN" --name orange-pi-zero3-tests --labels orange-pi-tests --work _work`, then immediately unset `RUNNER_TOKEN`. Never paste the literal token into a command, history, file, or log. Confirm the runner is repository-scoped and has the default `self-hosted`, `Linux`, `ARM64` labels plus `orange-pi-tests`. Do not run the runner's system-level `svc.sh` installer as root; instead, use a systemd **user** unit for `gha-runner` that starts `/home/gha-runner/actions-runner/runsvc.sh`, sets `DOCKER_HOST=unix:///run/user/1002/docker.sock`, and remains inside the already-limited `user-1002.slice`. The test workflow installs Bun 1.4.0 with the pinned `oven-sh/setup-bun` action. The workflow runs sequentially: bun install --frozen-lockfile, bun run typecheck, bun run lint, bun run test:unit, bun run test:migrations, bun run test:integration, then bun run build. Lint now exits successfully with 27 warnings after the recorded formatting baseline was fixed. Defer browser tests until an ARM64 browser is installed and verified. Keep the test daemon's scratch data/workspace cleaned after each job.
+   Configure the runner only after resource and isolation checks. The `config.sh` CLI requires the token as an argument, so the token is briefly visible in the configuration process arguments even when shell history and terminal echo are disabled. Because the Pi has multiple local accounts, check `/proc` visibility with `findmnt -no OPTIONS /proc`; proceed only if `hidepid=1` or `hidepid=2` is set, or if no untrusted local user can inspect processes during registration. If neither condition can be assured, pause registration until process visibility is restricted or use a separate host. In an interactive SSH session, enter a `gha-runner` shell and use this sequence after copying a fresh token from GitHub:
+
+   ```sh
+   sudo -H -u gha-runner bash --noprofile --norc
+   cd /home/gha-runner/actions-runner
+   set +o history
+   set +x
+   read -r -s -p 'Paste the short-lived repository token: ' RUNNER_TOKEN
+   printf '\n'
+   ./config.sh --unattended --url https://github.com/MIOW-CODES/lms-orange-pi-private --token "$RUNNER_TOKEN" --name orange-pi-zero3-tests --labels orange-pi-tests --work _work
+   config_status=$?
+   unset RUNNER_TOKEN
+   if [ "$config_status" -ne 0 ]; then exit "$config_status"; fi
+   exit
+   ```
+
+   Never paste the literal token into a command, history, file, or log. Confirm the runner is repository-scoped and has the default `self-hosted`, `Linux`, `ARM64` labels plus `orange-pi-tests`. Do not run the runner's system-level `svc.sh` installer as root; instead, create this systemd **user** unit for `gha-runner` at `/home/gha-runner/.config/systemd/user/lms-orange-pi-runner.service`:
+
+   ```ini
+   [Unit]
+   Description=GitHub Actions runner for lms-orange-pi-private
+   After=network-online.target
+   Wants=network-online.target
+
+   [Service]
+   Type=simple
+   WorkingDirectory=/home/gha-runner/actions-runner
+   Environment=DOCKER_HOST=unix:///run/user/1002/docker.sock
+   ExecStart=/home/gha-runner/actions-runner/runsvc.sh
+   Restart=always
+   RestartSec=5
+   KillSignal=SIGINT
+   TimeoutStopSec=30
+
+   [Install]
+   WantedBy=default.target
+   ```
+
+   Create and activate the unit as `gha-runner`:
+
+   ```sh
+   sudo -H -u gha-runner install -d -m 0700 /home/gha-runner/.config/systemd/user
+   sudo -H -u gha-runner tee /home/gha-runner/.config/systemd/user/lms-orange-pi-runner.service >/dev/null <<'EOF'
+   [Unit]
+   Description=GitHub Actions runner for lms-orange-pi-private
+   After=network-online.target
+   Wants=network-online.target
+
+   [Service]
+   Type=simple
+   WorkingDirectory=/home/gha-runner/actions-runner
+   Environment=DOCKER_HOST=unix:///run/user/1002/docker.sock
+   ExecStart=/home/gha-runner/actions-runner/runsvc.sh
+   Restart=always
+   RestartSec=5
+   KillSignal=SIGINT
+   TimeoutStopSec=30
+
+   [Install]
+   WantedBy=default.target
+   EOF
+   sudo -H -u gha-runner env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus systemctl --user daemon-reload
+   ```
+
+   Before starting it, confirm the production app, PostgreSQL, and NPM are healthy, run off-peak, and verify at least 3 GiB `MemAvailable` (`awk '/MemAvailable/ {printf "%.2f GiB\n", $2 / 1048576}' /proc/meminfo`); the already-queued branch workflow may start as soon as the runner comes online. With linger already enabled and the resource check passed, start and inspect the unit:
+
+   ```sh
+   sudo -H -u gha-runner env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus systemctl --user enable --now lms-orange-pi-runner.service
+   sudo -H -u gha-runner env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus systemctl --user --no-pager status lms-orange-pi-runner.service
+   sudo systemctl show user-1002.slice -p CPUQuotaPerSecUSec -p MemoryHigh -p MemoryMax -p TasksMax
+   ```
+
+   The unit must stay in the existing `user-1002.slice`. The test workflow installs Bun 1.4.0 with the pinned `oven-sh/setup-bun` action. It runs sequentially: bun install --frozen-lockfile, bun run typecheck, bun run lint, bun run test:unit, bun run test:migrations, bun run test:integration, then bun run build. Lint now exits successfully with 27 warnings after the recorded formatting baseline was fixed. Defer browser tests until an ARM64 browser is installed and verified. Keep the test daemon's scratch data/workspace cleaned after each job.
 5. Keep the existing one-job concurrency limit and 90-minute timeout; the workflow now fails before Bun setup unless at least 3 GiB RAM is available. The `gha-runner` user slice is capped at one CPU, 1.75 GiB `MemoryHigh`, 2 GiB `MemoryMax`, and 512 tasks; verify the runner's job and rootless containers remain inside this aggregate slice after installation. Run the first tests off-peak while watching app/PostgreSQL health, free RAM, swap, disk, CPU temperature, and logs. If tests cause production latency, memory pressure, thermal throttling, or disk exhaustion, stop the runner and move automated tests to separate hardware; do not trade production availability for CI.
 6. Verify a push to this branch queues on the dedicated test runner, each test runs once with no production environment variables, another branch and a fork PR cannot select the runner, scratch PostgreSQL is removed after success/failure, and the production app/DB/NPM and existing deployment runner stay healthy. The runner is for tests only; it has no deployment step.
 
