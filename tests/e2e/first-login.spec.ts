@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type BrowserContext } from "@playwright/test";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import { randomInt, randomUUID } from "node:crypto";
@@ -26,6 +26,7 @@ describeLocal("temporary PIN onboarding for every role", () => {
       const temporary = String(randomInt(100000, 500000));
       const chosen = String(randomInt(500000, 1000000));
       let profileId: string | undefined;
+      let secondaryContext: BrowserContext | undefined;
       try {
         const created = await pool.query<{ id: string; pin_must_change: boolean }>(
           "INSERT INTO profiles(full_name,role,username,pin,pin_hash) VALUES($1,$2,$3,NULL,$4) RETURNING id,pin_must_change",
@@ -59,10 +60,55 @@ describeLocal("temporary PIN onboarding for every role", () => {
             }
           }),
         ).toBe(true);
+
+        // A temporary PIN cannot be selected again as the permanent PIN.
+        expect(
+          await page.evaluate(async (temporary) => {
+            const lms = await import("/src/lib/lms.ts");
+            try {
+              await lms.changeOwnPin(null, temporary);
+              return false;
+            } catch (error) {
+              return (
+                error instanceof Error &&
+                error.message.includes("Choose a different PIN from your temporary PIN")
+              );
+            }
+          }, temporary),
+        ).toBe(true);
+        await expect(page.getByTestId("pin-gate")).toBeVisible();
+
+        // Keep a second independent browser session so rotation must revoke it.
+        const browser = page.context().browser();
+        if (!browser) throw new Error("Playwright browser is unavailable");
+        secondaryContext = await browser.newContext();
+        const secondaryPage = await secondaryContext.newPage();
+        await secondaryPage.goto("/auth");
+        await secondaryPage.evaluate(
+          async ({ username, temporary }) => {
+            const lms = await import("/src/lib/lms.ts");
+            const result = await lms.pinLogin(username, temporary);
+            if (!result.ok || !result.profile.pin_must_change)
+              throw new Error("Could not create the second temporary-PIN session");
+            lms.saveSession(result.profile);
+          },
+          { username, temporary },
+        );
         await page.getByTestId("pin-gate-new").fill(chosen);
         await page.getByTestId("pin-gate-confirm").fill(chosen);
         await page.getByTestId("pin-gate-submit").click();
         await expect(page.getByTestId("pin-gate")).toBeHidden();
+        expect(
+          await secondaryPage.evaluate(async () => {
+            const lms = await import("/src/lib/lms.ts");
+            try {
+              await lms.listCourses();
+              return false;
+            } catch (error) {
+              return error instanceof Error && error.message === "Unauthorized";
+            }
+          }),
+        ).toBe(true);
         expect(
           await page.evaluate(
             async ({ username, temporary, chosen }) => {
@@ -77,6 +123,7 @@ describeLocal("temporary PIN onboarding for every role", () => {
           ),
         ).toBe(true);
       } finally {
+        await secondaryContext?.close();
         if (profileId) {
           await pool.query("DELETE FROM sessions WHERE profile_id=$1", [profileId]);
           await pool.query("DELETE FROM profiles WHERE id=$1", [profileId]);
