@@ -29,9 +29,7 @@ concurrency:
 jobs:
   test:
     if: github.ref == 'refs/heads/codex/orange-pi-local-postgres'
-    runs-on:
-      group: orange-pi-branch-tests
-      labels: orange-pi-tests
+    runs-on: [self-hosted, linux, ARM64, orange-pi-tests]
     timeout-minutes: 90
     steps:
       - name: Check out this commit
