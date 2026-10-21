@@ -822,9 +822,7 @@ export async function findProfileByRfid(uid: string): Promise<Profile | null> {
   return res ? res.profile : null;
 }
 
-export type PinLoginResult =
-  | { ok: true; profile: Profile }
-  | { ok: false; reason: "invalid" | "locked"; retryAfterMinutes?: number; attemptsLeft?: number };
+export type PinLoginResult = { ok: true; profile: Profile } | { ok: false; reason: "invalid" };
 
 /**
  * Unified sign-in for every role: identifier may be a student ID, email, or
@@ -838,13 +836,7 @@ export async function pinLogin(login: string, secret: string): Promise<PinLoginR
     throw new Error("pinLoginFn not loaded — server function module failed to initialize");
   }
   const res = (await pinLoginFn({ data: { login, secret } })) as
-    | { ok: true; profile: Profile }
-    | {
-        ok: false;
-        reason: "invalid" | "locked";
-        retryAfterMinutes?: number;
-        attemptsLeft?: number;
-      };
+    { ok: true; profile: Profile } | { ok: false; reason: "invalid" };
   dbg("lms", "pinLogin RPC response", {
     ok: res.ok,
     reason: "reason" in res ? res.reason : undefined,

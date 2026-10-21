@@ -144,18 +144,8 @@ function AuthPage() {
           `Welcome, ${res.profile.full_name?.split(" ")[0] || res.profile.full_name || "User"}!`,
         );
         navigate({ to: dashboardPathFor(res.profile.role) });
-      } else if (res.reason === "locked") {
-        toast.error(
-          `Account locked after too many failed attempts — try again in ~${res.retryAfterMinutes ?? 15} min.`,
-        );
       } else {
-        toast.error(
-          `Invalid credentials${
-            typeof res.attemptsLeft === "number"
-              ? ` — ${res.attemptsLeft} attempt${res.attemptsLeft === 1 ? "" : "s"} left before lockout`
-              : ""
-          }.`,
-        );
+        toast.error("Invalid credentials. Please try again.");
       }
     } catch (e) {
       dbgError("auth", "PIN login error", e);

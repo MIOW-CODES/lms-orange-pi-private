@@ -8,6 +8,7 @@ import {
   canVerifyPinCandidate,
   pinGateRequiredForRole,
   hasPinWrite,
+  invalidPinLoginResult,
   safeProfile,
 } from "./profiles.server";
 import type { ProfileRow } from "./db-types";
@@ -128,5 +129,13 @@ describe("canVerifyPinCandidate — temporary credential compatibility", () => {
 
   it("continues to accept valid numeric PINs", () => {
     expect(canVerifyPinCandidate("1234", false)).toBe(true);
+  });
+});
+
+describe("public PIN login failure response", () => {
+  it("has the same generic shape without account, lockout, or attempt details", () => {
+    const result = invalidPinLoginResult();
+    expect(result).toEqual({ ok: false, reason: "invalid" });
+    expect(Object.keys(result).sort()).toEqual(["ok", "reason"]);
   });
 });

@@ -127,6 +127,11 @@ async function verifyPin(p: ProfileRow, pin: string): Promise<boolean> {
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_LOCK_MINUTES = 15;
 
+/** Public sign-in failures must not reveal whether an account exists or is locked. */
+export function invalidPinLoginResult() {
+  return { ok: false as const, reason: "invalid" as const };
+}
+
 async function verifySecret(p: ProfileRow, secret: string): Promise<boolean> {
   if (await verifyPin(p, secret)) return true;
   const key = `secret:${p.id ?? p.email ?? "unknown"}`;
@@ -163,9 +168,7 @@ export async function verifyPinLogin(login: string, secret: string) {
 
   const identifierKey = `login:ident:${identifier.toLowerCase()}`;
   if (!(await authRateLimitAllows(identifierKey))) {
-    const err = new Error("Too many attempts") as HttpError;
-    err.status = 429;
-    throw err;
+    return invalidPinLoginResult();
   }
 
   let p: ProfileRow | null = null;
@@ -184,7 +187,7 @@ export async function verifyPinLogin(login: string, secret: string) {
   if (!p) {
     dbgS("profile not found");
     await recordAuthFailure(identifierKey);
-    return { ok: false as const, reason: "invalid" as const };
+    return invalidPinLoginResult();
   }
   dbgS("profile found", {
     role: p.role,
@@ -195,21 +198,27 @@ export async function verifyPinLogin(login: string, secret: string) {
   const now = Date.now();
   const lockedUntil = typeof p.locked_until === "string" ? Date.parse(p.locked_until) : 0;
   if (lockedUntil > now) {
-    return {
-      ok: false as const,
-      reason: "locked" as const,
-      retryAfterMinutes: Math.max(1, Math.ceil((lockedUntil - now) / 60000)),
-    };
+    return invalidPinLoginResult();
   }
 
   const profileKey = `login:profile:${p.id}`;
   if (!(await authRateLimitAllows(profileKey))) {
-    const err = new Error("Too many attempts") as HttpError;
-    err.status = 429;
-    throw err;
+    return invalidPinLoginResult();
   }
 
-  if (!(await verifySecret(p, secret))) {
+  let verified = false;
+  try {
+    verified = await verifySecret(p, secret);
+  } catch (error) {
+    // PIN/password buckets can independently deny attempts after an account
+    // has been found. Keep that internal distinction out of the public result.
+    if (error instanceof Error && "status" in error && (error as HttpError).status === 429) {
+      return invalidPinLoginResult();
+    }
+    throw error;
+  }
+
+  if (!verified) {
     await Promise.all([recordAuthFailure(identifierKey), recordAuthFailure(profileKey)]);
     const attempts =
       (typeof p.failed_login_attempts === "number" ? p.failed_login_attempts : 0) + 1;
@@ -221,13 +230,7 @@ export async function verifyPinLogin(login: string, secret: string) {
         locked_until: lock ? new Date(now + LOGIN_LOCK_MINUTES * 60000).toISOString() : null,
       })
       .eq("id", p.id);
-    return lock
-      ? { ok: false as const, reason: "locked" as const, retryAfterMinutes: LOGIN_LOCK_MINUTES }
-      : {
-          ok: false as const,
-          reason: "invalid" as const,
-          attemptsLeft: LOGIN_MAX_ATTEMPTS - attempts,
-        };
+    return invalidPinLoginResult();
   }
 
   if (p.failed_login_attempts || p.locked_until) {
