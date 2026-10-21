@@ -34,9 +34,6 @@ import { cn, gradeLevelLabel } from "@/lib/utils";
 
 type Step = "paste" | "review" | "done";
 
-const AVATAR = (seed: string) =>
-  `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
-
 const PLACEHOLDER = `Paste your class list here — from a spreadsheet, Word doc or PDF.
 
 2024-2699, ACOSTA, Axel Rose V., F, 3
@@ -299,7 +296,7 @@ export function BulkAddStudentsContent({
         email: r.email || null,
         grade_level: r.grade_level ?? null,
         section: r.section || null,
-        avatar_url: r.student_id ? AVATAR(r.student_id) : null,
+        avatar_url: null,
       }));
       // Chunked so a big list can never hit the server payload ceiling.
       let merged: BulkAddResult | null = null;

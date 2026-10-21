@@ -30,6 +30,7 @@ import {
   useRfidScanner,
 } from "@/components/lms";
 import { changeOwnPin, updateProfile, updateSessionProfile, uploadAvatar } from "@/lib/lms";
+import { localAvatarUrlOrNull } from "@/lib/avatar-url";
 import {
   applyFontSize,
   applyHighContrast,
@@ -45,7 +46,7 @@ import {
   type UserSettings,
 } from "@/lib/settings";
 import { cn } from "@/lib/utils";
-import { LoadingSkeleton } from "@/components/ui-elements";
+import { LoadingSkeleton, UserAvatar } from "@/components/ui-elements";
 
 export const Route = createFileRoute("/dashboard/student/settings")({
   head: () => ({
@@ -190,7 +191,8 @@ function StudentSettings() {
       updateSessionProfile({
         full_name: name.trim(),
         email: email.trim() || null,
-        avatar_url: settings.avatar ?? profile.avatar_url,
+        avatar_url:
+          localAvatarUrlOrNull(settings.avatar) ?? localAvatarUrlOrNull(profile.avatar_url),
       });
       // The kiosk demo quick sign-in list caches names/avatars — refresh it.
       queryClient.invalidateQueries({ queryKey: ["demo-profiles"] });
@@ -264,7 +266,8 @@ function StudentSettings() {
     }
   };
 
-  const avatarSrc = settings.avatar ?? profile.avatar_url ?? "";
+  const rawAvatarSrc = settings.avatar ?? profile.avatar_url;
+  const avatarSrc = localAvatarUrlOrNull(rawAvatarSrc) ?? "";
 
   return (
     <AppShell nav={STUDENT_NAV} profile={profile} subtitle="Student Portal">
@@ -306,10 +309,10 @@ function StudentSettings() {
               </p>
 
               <div className="mb-6 flex items-center gap-4">
-                <img
+                <UserAvatar
                   src={avatarSrc}
-                  alt={`${profile.full_name} avatar`}
-                  className="h-16 w-16 rounded-2xl object-cover ring-2 ring-primary/30"
+                  name={profile.full_name}
+                  className="h-16 w-16 rounded-2xl ring-2 ring-primary/30"
                 />
                 <div className="flex flex-wrap gap-2">
                   <input
@@ -327,7 +330,7 @@ function StudentSettings() {
                   >
                     <Upload className="h-3.5 w-3.5" /> {avatarBusy ? "Uploading…" : "Upload photo"}
                   </button>
-                  {avatarSrc && (
+                  {rawAvatarSrc && (
                     <button
                       onClick={() => {
                         persist({ ...settings, avatar: null }, "Avatar removed");

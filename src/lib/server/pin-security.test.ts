@@ -76,6 +76,13 @@ describe("safeProfile — login responses surface the gate flag", () => {
     const p = safeProfile(row());
     expect(p.pin_must_change).toBe(false);
   });
+
+  it("does not return a stored third-party avatar URL to the browser", () => {
+    const p = safeProfile(
+      row({ avatar_url: "https://avatars.example.invalid/avatar.svg?seed=synthetic" }),
+    );
+    expect(p.avatar_url).toBeNull();
+  });
 });
 
 describe("hasPinWrite — detecting temporary or private PIN writes", () => {

@@ -72,7 +72,7 @@ import {
 } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { courseLevelLabel } from "@/lib/course-levels";
-import { LoadingSkeleton } from "@/components/ui-elements";
+import { LoadingSkeleton, UserAvatar } from "@/components/ui-elements";
 import { BRAND_COLORS, BRAND_LOGO_SRC } from "@/lib/brand";
 import { MiowLockup, MiowMark } from "@/components/brand";
 
@@ -121,20 +121,6 @@ CREATE TABLE attendance_logs (id uuid PRIMARY KEY, student_id uuid REFERENCES pr
 -- Row Level Security: default-deny on all tables; access via signed-token server functions.`;
 
 const ROLE_LABEL: Record<Role, string> = { student: "Student", teacher: "Teacher", admin: "Admin" };
-
-function Initials({ name }: { name: string }) {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
-  return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-      {initials || "?"}
-    </span>
-  );
-}
 
 /**
  * Shared save footer for settings cards: names the save state ("Unsaved
@@ -1270,15 +1256,11 @@ function AdminSettings() {
                         <tr key={u.id}>
                           <td className="py-2.5 pr-3">
                             <div className="flex items-center gap-2.5">
-                              {u.avatar_url ? (
-                                <img
-                                  src={u.avatar_url}
-                                  alt={u.full_name}
-                                  className="h-8 w-8 shrink-0 rounded-full object-cover"
-                                />
-                              ) : (
-                                <Initials name={u.full_name} />
-                              )}
+                              <UserAvatar
+                                src={u.avatar_url}
+                                name={u.full_name}
+                                className="h-8 w-8 shrink-0"
+                              />
                               <span className="font-semibold">
                                 {u.full_name}
                                 {u.id === profile.id && (
@@ -1697,15 +1679,11 @@ function AdminSettings() {
         {roleChange && (
           <>
             <div className="flex items-center gap-3">
-              {roleChange.user.avatar_url ? (
-                <img
-                  src={roleChange.user.avatar_url}
-                  alt=""
-                  className="h-10 w-10 rounded-full object-cover"
-                />
-              ) : (
-                <Initials name={roleChange.user.full_name} />
-              )}
+              <UserAvatar
+                src={roleChange.user.avatar_url}
+                name={roleChange.user.full_name}
+                className="h-10 w-10"
+              />
               <div>
                 <p className="text-sm font-semibold">{roleChange.user.full_name}</p>
                 <p className="text-xs text-muted-foreground">
@@ -1765,15 +1743,11 @@ function AdminSettings() {
         {deleteTarget && (
           <>
             <div className="flex items-center gap-3">
-              {deleteTarget.avatar_url ? (
-                <img
-                  src={deleteTarget.avatar_url}
-                  alt=""
-                  className="h-10 w-10 rounded-full object-cover"
-                />
-              ) : (
-                <Initials name={deleteTarget.full_name} />
-              )}
+              <UserAvatar
+                src={deleteTarget.avatar_url}
+                name={deleteTarget.full_name}
+                className="h-10 w-10"
+              />
               <div>
                 <p className="text-sm font-semibold">{deleteTarget.full_name}</p>
                 <p className="text-xs text-muted-foreground">

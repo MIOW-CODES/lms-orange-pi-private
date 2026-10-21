@@ -17,6 +17,7 @@ import {
 } from "@/lib/server/sessions.server";
 import { schemas } from "@/lib/server/schemas.server";
 import { type ProfileRow, type ProfileRole, type HttpError } from "@/lib/server/db-types";
+import { localAvatarUrlOrNull } from "@/lib/avatar-url";
 
 /* ---------- PIN policy (pure decision logic — see pin-security.test.ts) ---------- */
 
@@ -57,7 +58,7 @@ export function safeProfile(p: ProfileRow & { pin_must_change?: boolean | null }
     email: p.email,
     full_name: p.full_name,
     role: p.role,
-    avatar_url: p.avatar_url,
+    avatar_url: localAvatarUrlOrNull(p.avatar_url),
     grade_level: p.grade_level,
     section: p.section,
     created_at: p.created_at,

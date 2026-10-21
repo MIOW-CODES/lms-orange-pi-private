@@ -61,13 +61,6 @@ export const Route = createFileRoute("/dashboard/admin/students")({
   component: StudentsPage,
 });
 
-const AVATARS = [
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=Felix",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=Aneka",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=Milo",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=Luna",
-];
-
 const EMPTY_FORM = {
   full_name: "",
   student_id: "",
@@ -172,7 +165,7 @@ function StudentsPage() {
           section: form.section || null,
           pin: form.pin || null,
           rfid_uid: form.rfid_uid || null,
-          avatar_url: AVATARS[Math.floor(Math.random() * AVATARS.length)] ?? null,
+          avatar_url: null,
         },
         form.course_id || null,
       );

@@ -1,5 +1,6 @@
 // Zod validation schemas for all server functions.
 import { z } from "zod";
+import { isLocalAvatarUrl } from "@/lib/avatar-url";
 
 const uuid = z.string().uuid();
 const nullableScore = z.number().min(0).max(100).nullable();
@@ -14,10 +15,7 @@ const scheduleFields = {
 
 const token = { token: z.string().min(1).max(4096) };
 
-const avatarUrl = z
-  .string()
-  .max(2048)
-  .regex(/^(https:\/\/|\/api\/public\/avatar\?p=)/, "invalid avatar_url");
+const avatarUrl = z.string().max(2048).refine(isLocalAvatarUrl, "invalid avatar_url");
 
 const attachmentMeta = z.object({
   name: z.string().min(1).max(200),

@@ -23,7 +23,7 @@ describe("schemas.profileInput", () => {
       section: "B8",
       pin: "123456",
       rfid_uid: "1234567890",
-      avatar_url: "https://example.com/a.png",
+      avatar_url: "/api/public/avatar?p=profile%2Favatar_123_0123456789abcdef.png",
       token: "t",
     });
     expect(parsed.grade_level).toBe(12);
@@ -32,6 +32,17 @@ describe("schemas.profileInput", () => {
   it("rejects an invalid PIN", () => {
     expect(() =>
       schemas.profileInput.parse({ full_name: "X", student_id: "1", pin: "abc", token: "t" }),
+    ).toThrow();
+  });
+
+  it("rejects external avatar URLs that would contact a third-party host", () => {
+    expect(() =>
+      schemas.profileInput.parse({
+        full_name: "X",
+        student_id: "1",
+        avatar_url: "https://avatars.example.invalid/avatar.svg?seed=synthetic",
+        token: "t",
+      }),
     ).toThrow();
   });
 });

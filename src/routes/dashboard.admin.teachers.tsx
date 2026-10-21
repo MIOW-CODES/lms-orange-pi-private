@@ -27,7 +27,7 @@ import {
   useProfile,
   useRfidScanner,
 } from "@/components/lms";
-import { LoadingSkeleton } from "@/components/ui-elements";
+import { LoadingSkeleton, UserAvatar } from "@/components/ui-elements";
 import { CreatableSelect } from "@/components/ui/creatable-select";
 import { DEFAULT_DEPARTMENTS } from "@/lib/constants";
 
@@ -281,11 +281,7 @@ function TeachersPage() {
                   <td className="p-4">
                     <div className="flex items-center gap-2.5">
                       {t.avatar_url ? (
-                        <img
-                          src={t.avatar_url}
-                          alt={t.full_name}
-                          className="h-8 w-8 rounded-full"
-                        />
+                        <UserAvatar src={t.avatar_url} name={t.full_name} className="h-8 w-8" />
                       ) : (
                         <span className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-primary">
                           <GraduationCap className="h-4 w-4" />
@@ -536,10 +532,10 @@ function TeacherDetailModal({
     >
       <div className="mb-4 flex items-center gap-3">
         {teacher.avatar_url ? (
-          <img
+          <UserAvatar
             src={teacher.avatar_url}
-            alt={teacher.full_name}
-            className="h-14 w-14 rounded-full ring-2 ring-primary/30"
+            name={teacher.full_name}
+            className="h-14 w-14 ring-2 ring-primary/30"
           />
         ) : (
           <span className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">

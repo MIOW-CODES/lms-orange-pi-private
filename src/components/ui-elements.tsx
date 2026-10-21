@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { MiowWatermark } from "@/components/brand";
 import { BRAND_LOGO_SRC } from "@/lib/brand";
+import { localAvatarUrlOrNull } from "@/lib/avatar-url";
 import { useTheme } from "@/hooks";
 
 /* ---------- Course accent palette ---------- */
@@ -641,7 +642,7 @@ export function UserAvatar({
   className?: string;
 }) {
   const isAdmin = name.toLowerCase().includes("admin");
-  const avatarSrc = src || (isAdmin ? BRAND_LOGO_SRC : null);
+  const avatarSrc = localAvatarUrlOrNull(src) || (isAdmin ? BRAND_LOGO_SRC : null);
 
   if (avatarSrc) {
     return (

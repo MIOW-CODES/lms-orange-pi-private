@@ -26,6 +26,7 @@ import {
   useRfidScanner,
 } from "@/components/lms";
 import { findProfileByCredential, updateTeacherSettings, uploadAvatar } from "@/lib/lms";
+import { avatarImageSource, localAvatarUrlOrNull } from "@/lib/avatar-url";
 import {
   getTeacherSettings,
   logAudit,
@@ -36,7 +37,7 @@ import { cn } from "@/lib/utils";
 import { PREFIXES } from "@/lib/course-levels";
 import { CreatableSelect } from "@/components/ui/creatable-select";
 import { DEFAULT_DEPARTMENTS } from "@/lib/constants";
-import { LoadingSkeleton } from "@/components/ui-elements";
+import { LoadingSkeleton, UserAvatar } from "@/components/ui-elements";
 
 export const Route = createFileRoute("/dashboard/teacher/settings")({
   head: () => ({
@@ -292,7 +293,8 @@ function TeacherSettingsPage() {
     }
   };
 
-  const avatarSrc = avatarPreview ?? profile.avatar_url ?? "";
+  const avatarSrc = avatarImageSource(avatarPreview ?? profile.avatar_url, true);
+  const hasStoredAvatar = localAvatarUrlOrNull(profile.avatar_url) !== null || !!profile.avatar_url;
 
   return (
     <AppShell nav={TEACHER_NAV} profile={profile} subtitle="Teacher Portal">
@@ -334,11 +336,19 @@ function TeacherSettingsPage() {
               </p>
 
               <div className="mb-6 flex items-center gap-4">
-                <img
-                  src={avatarSrc}
-                  alt={`${profile.full_name} avatar`}
-                  className="h-16 w-16 rounded-2xl object-cover ring-2 ring-primary/30"
-                />
+                {avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt={`${profile.full_name} avatar`}
+                    className="h-16 w-16 rounded-2xl object-cover ring-2 ring-primary/30"
+                  />
+                ) : (
+                  <UserAvatar
+                    src={profile.avatar_url}
+                    name={profile.full_name}
+                    className="h-16 w-16 rounded-2xl ring-2 ring-primary/30"
+                  />
+                )}
                 <div className="flex flex-wrap gap-2">
                   <input
                     ref={fileRef}
@@ -355,7 +365,7 @@ function TeacherSettingsPage() {
                   >
                     <Upload className="h-3.5 w-3.5" /> {avatarBusy ? "Uploading…" : "Upload photo"}
                   </button>
-                  {profile.avatar_url && (
+                  {hasStoredAvatar && (
                     <button
                       onClick={() => {
                         void updateTeacherSettings({ avatar_url: null })
