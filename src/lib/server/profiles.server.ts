@@ -1,6 +1,7 @@
 // Profiles & kiosk auth — CRUD, PIN login, RFID, biometrics.
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import type { PoolClient } from "pg";
 import { db, getPoolRaw, storage } from "@/integrations/db/client.server";
 import {
   authRateLimitAllows,
@@ -9,15 +10,89 @@ import {
   recordAuthFailure,
 } from "@/lib/server/auth-rate-limit.server";
 import { unwrap, withoutToken } from "@/lib/server/utils.server";
-import {
-  createSessionToken,
-  revokeSessions,
-  sessionSecret,
-  sessionJti,
-} from "@/lib/server/sessions.server";
+import { createSessionToken, sessionSecret, sessionJti } from "@/lib/server/sessions.server";
 import { schemas } from "@/lib/server/schemas.server";
 import { type ProfileRow, type ProfileRole, type HttpError } from "@/lib/server/db-types";
 import { localAvatarUrlOrNull } from "@/lib/avatar-url";
+
+const PROFILE_UPDATE_COLUMNS = new Set([
+  "full_name",
+  "student_id",
+  "email",
+  "grade_level",
+  "section",
+  "employee_id",
+  "prefix",
+  "department",
+  "pin",
+  "pin_hash",
+  "pin_must_change",
+  "rfid_uid",
+  "avatar_url",
+  "password_hash",
+  "role",
+  "username",
+  "phone",
+  "bio",
+  "office_hours",
+]);
+
+async function withTransaction<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await getPoolRaw().connect();
+  let destroyConnection: Error | undefined;
+  try {
+    await client.query("BEGIN");
+    const result = await operation(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      destroyConnection =
+        rollbackError instanceof Error ? rollbackError : new Error("Transaction rollback failed");
+    }
+    throw error;
+  } finally {
+    client.release(destroyConnection);
+  }
+}
+
+async function writeProfileUpdate(
+  client: PoolClient,
+  id: string,
+  row: Record<string, unknown>,
+): Promise<void> {
+  const entries = Object.entries(row);
+  if (entries.length === 0) throw new Error("Nothing to update");
+  const assignments = entries.map(([column], index) => {
+    if (!PROFILE_UPDATE_COLUMNS.has(column)) throw new Error("Invalid profile update field");
+    return `"${column}" = $${index + 1}`;
+  });
+  const values = entries.map(([, value]) => value);
+  values.push(id);
+  const updated = await client.query<{ id: string }>(
+    `UPDATE public.profiles
+        SET ${assignments.join(", ")}
+      WHERE id = $${values.length} AND deleted_at IS NULL
+    RETURNING id`,
+    values,
+  );
+  if (updated.rowCount !== 1) throw new Error("Profile not found");
+}
+
+async function revokeProfileSessions(
+  client: PoolClient,
+  profileId: string,
+  exceptJti?: string,
+): Promise<void> {
+  await client.query(
+    `UPDATE public.sessions
+        SET revoked_at = now()
+      WHERE profile_id = $1 AND revoked_at IS NULL${exceptJti ? " AND jti <> $2" : ""}`,
+    exceptJti ? [profileId, exceptJti] : [profileId],
+  );
+}
 
 /* ---------- PIN policy (pure decision logic — see pin-security.test.ts) ---------- */
 
@@ -297,10 +372,7 @@ export async function changeOwnPin(token: string, newPin: string, currentPin?: s
   const currentJti = sessionJti(token);
   if (!currentJti) throw new Error("Unauthorized");
 
-  const client = await getPoolRaw().connect();
-  let destroyConnection: Error | undefined;
-  try {
-    await client.query("BEGIN");
+  await withTransaction(async (client) => {
     const updated = await client.query<{ id: string }>(
       `UPDATE public.profiles
           SET pin_hash = $1,
@@ -312,25 +384,8 @@ export async function changeOwnPin(token: string, newPin: string, currentPin?: s
       [await bcrypt.hash(newPin, 12), caller.id],
     );
     if (updated.rowCount !== 1) throw new Error("Profile not found");
-
-    await client.query(
-      `UPDATE public.sessions
-          SET revoked_at = now()
-        WHERE profile_id = $1 AND jti <> $2 AND revoked_at IS NULL`,
-      [caller.id, currentJti],
-    );
-    await client.query("COMMIT");
-  } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (rollbackError) {
-      destroyConnection =
-        rollbackError instanceof Error ? rollbackError : new Error("Transaction rollback failed");
-    }
-    throw error;
-  } finally {
-    client.release(destroyConnection);
-  }
+    await revokeProfileSessions(client, caller.id, currentJti);
+  });
   return getProfileById(caller.id);
 }
 
@@ -424,9 +479,14 @@ export async function updateProfile(id: string, patch: Record<string, unknown>) 
     row["pin"] = null;
     row["pin_must_change"] = row["pin_must_change"] !== false;
   }
-  await unwrap(db.from("profiles").update(row).eq("id", id));
-  if ("role" in row || "pin_hash" in row || "password_hash" in row) {
-    await revokeSessions(id);
+  if (Object.keys(row).length === 0) throw new Error("Nothing to update");
+  if (["role", "pin_hash", "password_hash"].some((key) => key in row)) {
+    await withTransaction(async (client) => {
+      await writeProfileUpdate(client, id, row);
+      await revokeProfileSessions(client, id);
+    });
+  } else {
+    await unwrap(db.from("profiles").update(row).eq("id", id));
   }
 }
 
@@ -455,45 +515,55 @@ export async function deleteUser(adminId: string, id: string) {
     );
     if (admins.length <= 1) throw new Error("You can't remove the last remaining admin");
   }
-  const cleared = await unwrap<Array<{ id: string }>>(
-    db.from("courses").update({ teacher_id: null }).eq("teacher_id", id).select("id"),
-  );
   const stamp = new Date().toISOString();
   const tombstone = (value: unknown) =>
     typeof value === "string" && value && !value.startsWith("deleted:")
       ? `deleted:${stamp}:${value}`.slice(0, 300)
       : (value ?? null);
-  const archived = await unwrap<{
-    email: string | null;
-    student_id: string | null;
-    username: string | null;
-    employee_id: string | null;
-  } | null>(
-    db
-      .from("profiles")
-      .select("email, student_id, username, employee_id")
-      .eq("id", id)
-      .maybeSingle(),
-  );
-  await unwrap(
-    db
-      .from("profiles")
-      .update({
-        deleted_at: stamp,
-        rfid_uid: null,
-        pin: null,
-        pin_hash: null,
-        password_hash: null,
-        email: tombstone(archived?.email),
-        student_id: tombstone(archived?.student_id),
-        username: tombstone(archived?.username),
-        employee_id: tombstone(archived?.employee_id),
-      })
-      .eq("id", id),
-  );
-  await revokeSessions(id);
-
-  return { unassignedCourses: cleared.length };
+  return withTransaction(async (client) => {
+    const cleared = await client.query<{ id: string }>(
+      "UPDATE public.courses SET teacher_id = NULL WHERE teacher_id = $1 RETURNING id",
+      [id],
+    );
+    const archived = await client.query<{
+      email: string | null;
+      student_id: string | null;
+      username: string | null;
+      employee_id: string | null;
+    }>(
+      `SELECT email, student_id, username, employee_id
+         FROM public.profiles
+        WHERE id = $1 AND deleted_at IS NULL`,
+      [id],
+    );
+    const identity = archived.rows[0];
+    if (!identity) throw new Error("User not found");
+    const updated = await client.query<{ id: string }>(
+      `UPDATE public.profiles
+          SET deleted_at = $1,
+              rfid_uid = NULL,
+              pin = NULL,
+              pin_hash = NULL,
+              password_hash = NULL,
+              email = $2,
+              student_id = $3,
+              username = $4,
+              employee_id = $5
+        WHERE id = $6 AND deleted_at IS NULL
+      RETURNING id`,
+      [
+        stamp,
+        tombstone(identity.email),
+        tombstone(identity.student_id),
+        tombstone(identity.username),
+        tombstone(identity.employee_id),
+        id,
+      ],
+    );
+    if (updated.rowCount !== 1) throw new Error("User not found");
+    await revokeProfileSessions(client, id);
+    return { unassignedCourses: cleared.rowCount ?? 0 };
+  });
 }
 
 export async function listStudents() {
@@ -623,18 +693,27 @@ export async function updateUserRole(
     );
     if (admins.length <= 1) throw new Error("You can't demote the last remaining admin");
   }
-  let unassignedCourses = 0;
-  if (role === "student" && target.role !== "student") {
-    const cleared = await unwrap<Array<{ id: string }>>(
-      db.from("courses").update({ teacher_id: null }).eq("teacher_id", id).select("id"),
+  return withTransaction(async (client) => {
+    let unassignedCourses = 0;
+    if (role === "student" && target.role !== "student") {
+      const cleared = await client.query<{ id: string }>(
+        "UPDATE public.courses SET teacher_id = NULL WHERE teacher_id = $1 RETURNING id",
+        [id],
+      );
+      unassignedCourses = cleared.rowCount ?? 0;
+    }
+    const updated = await client.query<ProfileRow>(
+      `UPDATE public.profiles
+          SET role = $1
+        WHERE id = $2 AND deleted_at IS NULL
+      RETURNING *`,
+      [role, id],
     );
-    unassignedCourses = cleared.length;
-  }
-  await unwrap(db.from("profiles").update({ role }).eq("id", id));
-  await revokeSessions(id);
-  const profile = await getProfileById(id);
-  if (!profile) throw new Error("User not found after update");
-  return { profile, unassignedCourses };
+    const profile = updated.rows[0];
+    if (!profile) throw new Error("User not found");
+    await revokeProfileSessions(client, id);
+    return { profile: safeProfile(profile), unassignedCourses };
+  });
 }
 
 /* ---------- File-type sniff (file-type pkg or magic-byte fallback) ---------- */

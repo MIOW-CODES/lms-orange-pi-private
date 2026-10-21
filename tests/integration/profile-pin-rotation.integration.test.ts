@@ -25,6 +25,9 @@ let failureTriggerName: string | undefined;
 let failureFunctionName: string | undefined;
 
 let changeOwnPin: typeof import("@/lib/server/profiles.server").changeOwnPin;
+let deleteUser: typeof import("@/lib/server/profiles.server").deleteUser;
+let updateProfile: typeof import("@/lib/server/profiles.server").updateProfile;
+let updateUserRole: typeof import("@/lib/server/profiles.server").updateUserRole;
 let createSessionToken: typeof import("@/lib/server/sessions.server").createSessionToken;
 let requireSession: typeof import("@/lib/server/auth.server").requireSession;
 let verifyPinLogin: typeof import("@/lib/server/profiles.server").verifyPinLogin;
@@ -32,7 +35,8 @@ let verifyPinLogin: typeof import("@/lib/server/profiles.server").verifyPinLogin
 beforeAll(async () => {
   process.env["SESSION_SECRET"] = randomBytes(32).toString("hex");
   _setPoolForTests(app);
-  ({ changeOwnPin, verifyPinLogin } = await import("@/lib/server/profiles.server"));
+  ({ changeOwnPin, deleteUser, updateProfile, updateUserRole, verifyPinLogin } =
+    await import("@/lib/server/profiles.server"));
   ({ createSessionToken } = await import("@/lib/server/sessions.server"));
   ({ requireSession } = await import("@/lib/server/auth.server"));
 });
@@ -65,7 +69,7 @@ afterAll(async () => {
   }
 });
 
-async function createSyntheticAccount() {
+async function createSyntheticAccount(role: "student" | "teacher" | "admin" = "student") {
   const id = randomUUID();
   const studentId = `synthetic-pin-rotation-${id}`;
   const temporaryPin = `Temporary-${randomBytes(12).toString("hex")}`;
@@ -87,10 +91,10 @@ async function createSyntheticAccount() {
   await migrator.query(
     `INSERT INTO public.profiles
        (id, student_id, full_name, role, pin_hash, password_hash, pin_must_change)
-     VALUES ($1, $2, $3, 'student', $4, $5, true)`,
-    [id, studentId, "Synthetic PIN rotation test", pinHash, passwordHash],
+     VALUES ($1, $2, $3, $4, $5, $6, true)`,
+    [id, studentId, "Synthetic PIN rotation test", role, pinHash, passwordHash],
   );
-  return { id, studentId, temporaryPin, newPin, pinHash, passwordHash };
+  return { id, studentId, temporaryPin, newPin, pinHash, passwordHash, role };
 }
 
 async function signIn(studentId: string, pin: string): Promise<string> {
@@ -113,6 +117,40 @@ it("commits a PIN rotation with revocation and keeps only the caller session act
   );
   expect((await verifyPinLogin(account.studentId, account.temporaryPin)).ok).toBe(false);
   expect((await verifyPinLogin(account.studentId, account.newPin)).ok).toBe(true);
+});
+
+it("commits profile PIN resets with revocation of every existing session", async () => {
+  const account = await createSyntheticAccount();
+  const firstToken = await createSessionToken(account.id);
+  const secondToken = await createSessionToken(account.id);
+
+  await updateProfile(account.id, { pin: account.newPin });
+
+  const profile = (
+    await migrator.query<{ pin_hash: string; pin_must_change: boolean }>(
+      "SELECT pin_hash, pin_must_change FROM public.profiles WHERE id = $1",
+      [account.id],
+    )
+  ).rows[0];
+  expect(profile?.pin_hash).not.toBe(account.pinHash);
+  expect(profile?.pin_must_change).toBe(true);
+  await expect(requireSession(firstToken, { allowTemporaryPin: true })).rejects.toThrow(
+    "Unauthorized",
+  );
+  await expect(requireSession(secondToken, { allowTemporaryPin: true })).rejects.toThrow(
+    "Unauthorized",
+  );
+});
+
+it("commits role changes with revocation of every existing session", async () => {
+  const account = await createSyntheticAccount();
+  const token = await createSessionToken(account.id);
+
+  const result = await updateUserRole(randomUUID(), account.id, "teacher");
+
+  expect(result.profile.role).toBe("teacher");
+  expect(result.unassignedCourses).toBe(0);
+  await expect(requireSession(token, { allowTemporaryPin: true })).rejects.toThrow("Unauthorized");
 });
 
 it("rolls back the PIN update when revoking stale sessions fails", async () => {
@@ -143,20 +181,34 @@ it("rolls back the PIN update when revoking stale sessions fails", async () => {
   await expect(changeOwnPin(currentToken, account.newPin)).rejects.toThrow(
     "synthetic revocation failure",
   );
+  await expect(updateProfile(account.id, { pin: account.newPin })).rejects.toThrow(
+    "synthetic revocation failure",
+  );
+  await expect(updateUserRole(randomUUID(), account.id, "teacher")).rejects.toThrow(
+    "synthetic revocation failure",
+  );
+  await expect(deleteUser(randomUUID(), account.id)).rejects.toThrow(
+    "synthetic revocation failure",
+  );
 
   const profile = (
     await migrator.query<{
       pin_hash: string;
       password_hash: string;
       pin_must_change: boolean;
-    }>("SELECT pin_hash, password_hash, pin_must_change FROM public.profiles WHERE id = $1", [
-      account.id,
-    ])
+      role: string;
+      deleted_at: string | null;
+    }>(
+      "SELECT pin_hash, password_hash, pin_must_change, role, deleted_at FROM public.profiles WHERE id = $1",
+      [account.id],
+    )
   ).rows[0];
   expect(profile).toEqual({
     pin_hash: account.pinHash,
     password_hash: account.passwordHash,
     pin_must_change: true,
+    role: "student",
+    deleted_at: null,
   });
 
   const activeSessions = await migrator.query<{ count: string }>(
