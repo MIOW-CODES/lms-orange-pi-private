@@ -160,7 +160,6 @@ function StudentsPage() {
           full_name: form.full_name,
           student_id: form.student_id,
           email: form.email || null,
-          role: "student",
           grade_level: parseInt(form.grade_level) || 7,
           section: form.section || null,
           pin: form.pin || null,

@@ -8,7 +8,6 @@ export interface StudentEnrollInput {
   full_name: string;
   student_id?: string | null;
   email?: string | null;
-  role?: "student" | "teacher" | "admin";
   grade_level?: number | null;
   section?: string | null;
   employee_id?: string | null;

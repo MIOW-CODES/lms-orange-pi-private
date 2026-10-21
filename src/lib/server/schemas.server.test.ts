@@ -77,6 +77,27 @@ describe("schemas.studentEnroll", () => {
       }),
     ).toThrow();
   });
+
+  it("rejects a client-supplied staff role in student enrollment", () => {
+    expect(() =>
+      schemas.studentEnroll.parse({
+        full_name: "Synthetic Student",
+        student_id: "SYNTH-ROLE-01",
+        role: "admin",
+        token: "synthetic-session",
+      }),
+    ).toThrow();
+  });
+
+  it("accepts the legacy student role but never a staff role", () => {
+    expect(
+      schemas.studentEnroll.parse({
+        full_name: "Synthetic Student",
+        role: "student",
+        token: "synthetic-session",
+      }).role,
+    ).toBe("student");
+  });
 });
 
 /* Regression guard: pin-on-create must survive announcementInput parsing. */

@@ -92,12 +92,14 @@ export const logoutFn = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-/* ---------- Profile management (staff only) ---------- */
+/* ---------- Profile management ---------- */
 
 export const createProfileFn = createServerFn({ method: "POST" })
   .validator((data) => server.schemas.profileInput.parse(data))
   .handler(async ({ data }) => {
-    await server.requireStaff(data.token);
+    // This generic entry point accepts arbitrary profile roles; roster
+    // creation uses createOrEnrollStudentFn, which is student-only.
+    await server.requireAdmin(data.token);
     return server.createProfile(data);
   });
 

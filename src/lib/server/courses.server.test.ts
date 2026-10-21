@@ -1,5 +1,7 @@
 import { describe, it, expect } from "bun:test";
-import { filterCoursesForCaller, hasCourseAccess } from "./courses.server";
+import type { Pool } from "pg";
+import { _setPoolForTests } from "@/integrations/db/client.server";
+import { createOrEnrollStudent, filterCoursesForCaller, hasCourseAccess } from "./courses.server";
 import { requireEnrollment } from "./auth.server";
 
 const catalog = [
@@ -64,5 +66,67 @@ describe("course-scoped gating (the listCourseMeetings rule)", () => {
       requireEnrollment("c-any", { id: "t1", role: "teacher" }),
     ).resolves.toBeUndefined();
     await expect(requireEnrollment("c-any", { id: "a1", role: "admin" })).resolves.toBeUndefined();
+  });
+});
+
+describe("createOrEnrollStudent role boundary", () => {
+  it("persists a new roster profile as a student even if called with a forged role", async () => {
+    let insertedRow: Record<string, unknown> | undefined;
+    const fakePool = {
+      async query(sql: string, values: unknown[] = []) {
+        if (sql.startsWith('INSERT INTO public."profiles"')) {
+          const columns = sql.match(/\(([^)]*)\) VALUES/)?.[1];
+          if (!columns) throw new Error("Unexpected profile insert SQL");
+          const names = columns.split(",").map((name) => name.trim().replaceAll('"', ""));
+          insertedRow = Object.fromEntries(names.map((name, index) => [name, values[index]]));
+          return {
+            rows: [
+              {
+                id: "synthetic-profile-id",
+                email: null,
+                full_name: "Synthetic Student",
+                role: "student",
+                avatar_url: null,
+                grade_level: null,
+                section: null,
+                created_at: "2026-10-21T00:00:00.000Z",
+                employee_id: null,
+                prefix: null,
+                department: null,
+                phone: null,
+                bio: null,
+                office_hours: null,
+                pin: null,
+                pin_hash: null,
+                pin_must_change: false,
+                rfid_uid: null,
+                ...insertedRow,
+              },
+            ],
+            rowCount: 1,
+          };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    } as unknown as Pool;
+
+    _setPoolForTests(fakePool);
+    try {
+      const input = {
+        full_name: "Synthetic Student",
+        student_id: "SYNTH-ROLE-01",
+        role: "admin",
+        token: "synthetic-session",
+      } as unknown as Parameters<typeof createOrEnrollStudent>[0];
+      const result = await createOrEnrollStudent(input, {
+        id: "synthetic-teacher-id",
+        role: "teacher",
+      });
+
+      expect(result.profile.role).toBe("student");
+      expect(insertedRow?.["role"]).toBe("student");
+    } finally {
+      _setPoolForTests(undefined);
+    }
   });
 });

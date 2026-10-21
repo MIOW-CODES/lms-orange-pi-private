@@ -280,7 +280,10 @@ export async function createOrEnrollStudent(
     profile = fresh;
     created = false;
   } else {
-    profile = await createProfile(fields as unknown as z.infer<typeof schemas.profileInput>);
+    profile = await createProfile({
+      ...fields,
+      role: "student",
+    } as unknown as z.infer<typeof schemas.profileInput>);
     created = true;
   }
 
@@ -319,7 +322,7 @@ export async function bulkAddStudents(
     const row = students[index]!;
     try {
       const { profile, created } = await createOrEnrollStudent(
-        { ...row, role: "student", course_id: course_id ?? null, token },
+        { ...row, course_id: course_id ?? null, token },
         caller,
       );
       rows.push({

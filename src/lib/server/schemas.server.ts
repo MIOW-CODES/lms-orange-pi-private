@@ -271,6 +271,9 @@ export const schemas = {
   // bare student record.
   studentEnroll: z.object({
     ...profileFields,
+    // Roster enrollment cannot create staff accounts; the service also forces
+    // the student role as defense in depth.
+    role: z.literal("student").optional(),
     course_id: uuid.nullable().optional(),
     ...token,
   }),
