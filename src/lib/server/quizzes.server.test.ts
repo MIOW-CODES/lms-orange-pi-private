@@ -637,7 +637,7 @@ describe("reported resistor explanation", () => {
   it("accepts a complete four-band explanation using gives as its predicate", () => {
     expect(
       gradeEssay(
-        "first and second band gives the significant digits, the third band gives the multiplier, the fourth band gives the tolerance",
+        "The first two bands give significant digits, the third gives the multiplier, and the fourth gives tolerance.",
         "Explain how the first two bands form significant digits, the third gives a multiplier, and the fourth gives tolerance. | Keywords: digits = digit, first, second; calculation = multiplier, multiply; tolerance = tolerance, percent",
       ),
     ).toBe(true);
