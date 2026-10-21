@@ -14,6 +14,11 @@ on:
       - "vite.config.ts"
       - "tsconfig.json"
       - "Dockerfile"
+      - ".dockerignore"
+      - ".npmrc"
+      - "bunfig.toml"
+      - "docker/**"
+      - "docker-compose.yml"
       - "docker-compose.pgtest.yml"
       - ".prettierrc"
       - "eslint.config.js"
@@ -61,6 +66,29 @@ jobs:
           docker info --format '{{json .SecurityOptions}}' | grep -q rootless
           docker compose version >/dev/null
           bun --version
+
+      - name: Validate Compose files without production credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          export POSTGRES_BOOTSTRAP_PASSWORD="$(openssl rand -hex 32)"
+          export POSTGRES_MIGRATOR_PASSWORD="$(openssl rand -hex 32)"
+          export POSTGRES_APP_PASSWORD="$(openssl rand -hex 32)"
+          export SESSION_SECRET="$(openssl rand -hex 32)"
+          export HARDWARE_API_KEY="$(openssl rand -hex 32)"
+          export OPENCODE_API_KEY="$(openssl rand -hex 32)"
+          export AI_GATEWAY_KEY="$(openssl rand -hex 32)"
+          export MIOW_PGTEST_BOOTSTRAP_PASSWORD="$(openssl rand -hex 32)"
+          export MIOW_PGTEST_MIGRATOR_PASSWORD="$(openssl rand -hex 32)"
+          export MIOW_PGTEST_APP_PASSWORD="$(openssl rand -hex 32)"
+          export VITE_GOOGLE_CLIENT_ID=ci-placeholder
+          export VITE_GOOGLE_API_KEY=ci-placeholder
+          export APP_IMAGE=miow-lms:ci
+          export AI_BASE_URL=https://example.invalid
+          export SITE_URL=https://example.invalid
+          export APP_BIND_ADDRESS=0.0.0.0
+          docker compose --project-name miow-compose-validation --file docker-compose.yml config --quiet
+          docker compose --project-name miow-pgtest-validation --file docker-compose.pgtest.yml config --quiet
 
       - name: Remove leftovers from interrupted PostgreSQL tests
         run: sh scripts/cleanup-postgres-test.sh
