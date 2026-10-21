@@ -1,7 +1,7 @@
 // Profiles & kiosk auth — CRUD, PIN login, RFID, biometrics.
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { db, storage } from "@/integrations/db/client.server";
+import { db, getPoolRaw, storage } from "@/integrations/db/client.server";
 import {
   authRateLimitAllows,
   clearAuthFailures,
@@ -290,28 +290,47 @@ export async function changeOwnPin(token: string, newPin: string, currentPin?: s
   if (typeof currentPin === "string" && currentPin.length > 0) {
     if (!(await verifyPin(p, currentPin))) throw new Error("Current PIN is incorrect");
   }
-  await unwrap(
-    db
-      .from("profiles")
-      .update({
-        pin_hash: await bcrypt.hash(newPin, 12),
-        pin: null,
-        pin_must_change: false,
-        ...(p.pin_must_change ? { password_hash: null } : {}),
-      })
-      .eq("id", caller.id),
-  );
   // A session established with the old temporary PIN must not gain access
-  // after another session replaces it. Preserve only the current session.
+  // after another session replaces it. Keep credential replacement and
+  // revocation in one transaction so a failed revocation cannot leave the
+  // previous sessions active after the PIN has changed.
   const currentJti = sessionJti(token);
-  const sessions = await unwrap<Array<{ jti: string }>>(
-    db.from("sessions").select("jti").eq("profile_id", caller.id).is("revoked_at", null),
-  );
-  const stale = sessions.filter((s) => s.jti !== currentJti).map((s) => s.jti);
-  if (stale.length)
-    await unwrap(
-      db.from("sessions").update({ revoked_at: new Date().toISOString() }).in("jti", stale),
+  if (!currentJti) throw new Error("Unauthorized");
+
+  const client = await getPoolRaw().connect();
+  let destroyConnection: Error | undefined;
+  try {
+    await client.query("BEGIN");
+    const updated = await client.query<{ id: string }>(
+      `UPDATE public.profiles
+          SET pin_hash = $1,
+              pin = NULL,
+              pin_must_change = false,
+              password_hash = CASE WHEN pin_must_change THEN NULL ELSE password_hash END
+        WHERE id = $2 AND deleted_at IS NULL
+      RETURNING id`,
+      [await bcrypt.hash(newPin, 12), caller.id],
     );
+    if (updated.rowCount !== 1) throw new Error("Profile not found");
+
+    await client.query(
+      `UPDATE public.sessions
+          SET revoked_at = now()
+        WHERE profile_id = $1 AND jti <> $2 AND revoked_at IS NULL`,
+      [caller.id, currentJti],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      destroyConnection =
+        rollbackError instanceof Error ? rollbackError : new Error("Transaction rollback failed");
+    }
+    throw error;
+  } finally {
+    client.release(destroyConnection);
+  }
   return getProfileById(caller.id);
 }
 
