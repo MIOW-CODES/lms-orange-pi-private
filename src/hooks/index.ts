@@ -11,14 +11,20 @@ import {
   type Role,
 } from "@/lib/lms";
 import { THEME_KEY } from "@/lib/settings";
+import { sessionCacheIdentity, updateSessionCacheIdentity } from "@/lib/session-cache";
 
 export function useProfile(roles?: Role[]) {
   const [profile, setProfile] = useState<import("@/lib/lms").Profile | null>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const cacheIdentity = useRef(sessionCacheIdentity(loadSession()));
   const roleKey = roles?.join(",") ?? "";
   useEffect(() => {
     const sync = () => {
       const p = loadSession();
+      cacheIdentity.current = updateSessionCacheIdentity(cacheIdentity.current, p, () =>
+        queryClient.clear(),
+      );
       const allowed = roleKey ? (roleKey.split(",") as Role[]) : undefined;
       if (!p) {
         navigate({ to: "/auth", replace: true });
@@ -31,7 +37,7 @@ export function useProfile(roles?: Role[]) {
     sync();
     void refreshSessionProfile();
     return subscribeProfile(sync);
-  }, [roleKey, navigate]);
+  }, [roleKey, navigate, queryClient]);
   return profile;
 }
 
