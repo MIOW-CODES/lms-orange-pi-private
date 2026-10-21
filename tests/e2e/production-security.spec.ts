@@ -1,12 +1,17 @@
 import { test, expect } from "@playwright/test";
 
+const baseHost = new URL(process.env["PLAYWRIGHT_BASE_URL"] ?? "http://localhost:3000").hostname;
+const expectedHsts = baseHost.toLowerCase() === "akios.site" ? "max-age=86400" : undefined;
+
 test.describe("production security smoke checks", () => {
   test("auth page is available with baseline security headers", async ({ page }) => {
     const response = await page.goto("/auth");
     expect(response?.status()).toBe(200);
     expect(response?.headers()["x-content-type-options"]).toBe("nosniff");
     expect(response?.headers()["x-frame-options"]).toBe("DENY");
-    expect(response?.headers()["strict-transport-security"]).toContain("max-age=63072000");
+    const hsts = response?.headers()["strict-transport-security"];
+    expect(hsts).toBe(expectedHsts);
+    expect(hsts ?? "").not.toMatch(/includeSubDomains|preload/i);
     expect(response?.headers()["content-security-policy"]).toContain("default-src 'self'");
     await expect(page.locator("body")).toContainText("MIOW");
   });
