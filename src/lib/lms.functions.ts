@@ -14,10 +14,15 @@
 //   for student-scoped records, any valid session for catalog reads.
 import { createServerFn } from "@tanstack/react-start";
 import * as server from "./server";
-import { changeOwnPin, parseChangeOwnPinInput } from "./server/profiles.server";
-import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
+import {
+  changeOwnPin,
+  invalidPinLoginResult,
+  parseChangeOwnPinInput,
+} from "./server/profiles.server";
+import { deleteCookie, getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
 import { SESSION_COOKIE_NAME, requireSession } from "./server/auth.server";
 import { COOKIE_SESSION_MARKER } from "@/lib/session";
+import { authRequestRateLimited } from "@/lib/server/auth-request-rate-limit.server";
 
 const sessionCookieOptions = {
   httpOnly: true,
@@ -35,6 +40,7 @@ const sessionCookieOptions = {
 export const getProfileByRfidFn = createServerFn({ method: "POST" })
   .validator((data) => server.schemas.rfid.parse(data))
   .handler(async ({ data }) => {
+    if (authRequestRateLimited(getRequest())) return null;
     const result = await server.findByRfid(data.uid);
     if (!result) return null;
     setCookie(SESSION_COOKIE_NAME, result.token, sessionCookieOptions);
@@ -47,6 +53,7 @@ export const getProfileByRfidFn = createServerFn({ method: "POST" })
 export const pinLoginFn = createServerFn({ method: "POST" })
   .validator((data) => server.schemas.pinLogin.parse(data))
   .handler(async ({ data }) => {
+    if (authRequestRateLimited(getRequest())) return invalidPinLoginResult();
     const result = await server.verifyPinLogin(data.login, data.secret);
     if (result.ok) {
       setCookie(SESSION_COOKIE_NAME, result.token, sessionCookieOptions);
