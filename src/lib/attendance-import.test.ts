@@ -103,6 +103,29 @@ describe("parseAttendanceSpreadsheet", () => {
     expect(res.inCount).toBe(2);
   });
 
+  it("handles legacy XLS binary format cleanly", () => {
+    const data = [
+      ["Student ID", "Full Name", "Date", "Time", "Type", "Status"],
+      ["2024-0001", "Juan Dela Cruz", "2026-10-16", "07:30", "in", "on-time"],
+      ["2024-0002", "Maria Santos", "2026-10-16", "07:45", "in", "late"],
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(data), "Sheet1");
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xls" });
+
+    const result = parseAttendanceSpreadsheet(
+      buffer,
+      "test.xls",
+      mockStudents,
+      mockExistingLogs,
+      "2026-10-16",
+    );
+
+    expect(result.totalRows).toBe(2);
+    expect(result.matchedCount).toBe(2);
+    expect(result.inCount).toBe(2);
+  });
+
   it("flags duplicates against existing logs and intra-file duplicates", () => {
     // 2026-10-15 IN already exists in mockExistingLogs for p1
     const csv = `ID,Name,Date,Time,Type

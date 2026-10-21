@@ -94,6 +94,32 @@ describe("parseGradebookSpreadsheet", () => {
     expect(maria?.selected).toBe(true);
   });
 
+  it("handles legacy XLS binary data cleanly", () => {
+    const data = [
+      ["Student ID", "Full Name", "WW", "PT", "Periodical Exam"],
+      ["2024-0001", "Juan Dela Cruz", 75, 80, 85],
+      ["2024-0002", "Maria Santos", 95, 92, 90],
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(data), "Sheet1");
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xls" });
+
+    const result = parseGradebookSpreadsheet(
+      buffer,
+      "test.xls",
+      mockRoster,
+      { p1: { ww: "75", pt: "80", ex: "85" } },
+      {},
+      () => 100,
+      "overwrite",
+    );
+
+    expect(result.totalRows).toBe(2);
+    expect(result.matchedCount).toBe(2);
+    expect(result.rows.find((row) => row.student?.id === "p1")?.status).toBe("unchanged");
+    expect(result.rows.find((row) => row.student?.id === "p2")?.status).toBe("new");
+  });
+
   it("identifies invalid scores (>100 or negative) and unmatched students", () => {
     const csv = `ID,Name,WW,PT,Exam
 2024-0001,Juan,105,-5,abc
