@@ -110,6 +110,22 @@ async function signIn(studentId: string, pin: string): Promise<string> {
   return result.token;
 }
 
+it("does not persist auth rate-limit rows for nonexistent login identifiers", async () => {
+  const login = `synthetic-missing-${randomUUID()}`;
+  const loginKey = `login:ident:${login}`;
+  authKeys.push(loginKey);
+
+  const result = await verifyPinLogin(login, "synthetic-invalid-secret");
+
+  expect(result).toEqual({ ok: false, reason: "invalid" });
+  const bucketKey = createHash("sha256").update(loginKey).digest("hex");
+  const bucket = await migrator.query(
+    "SELECT 1 FROM public.auth_rate_limits WHERE bucket_key = $1",
+    [bucketKey],
+  );
+  expect(bucket.rows).toHaveLength(0);
+});
+
 it("commits a PIN rotation with revocation and keeps only the caller session active", async () => {
   const account = await createSyntheticAccount();
   const currentToken = await signIn(account.studentId, account.temporaryPin);

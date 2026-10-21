@@ -269,7 +269,6 @@ export async function verifyPinLogin(login: string, secret: string) {
   }
   if (!p) {
     dbgS("profile not found");
-    await recordAuthFailure(identifierKey);
     return invalidPinLoginResult();
   }
   dbgS("profile found", {
