@@ -36,6 +36,7 @@ const PROFILE_UPDATE_COLUMNS = new Set([
   "bio",
   "office_hours",
 ]);
+const ACTIVE_ADMIN_LOCK_KEYS = [0x4d494f57, 1] as const;
 
 async function withTransaction<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await getPoolRaw().connect();
@@ -56,6 +57,12 @@ async function withTransaction<T>(operation: (client: PoolClient) => Promise<T>)
   } finally {
     client.release(destroyConnection);
   }
+}
+
+async function lockActiveAdminRoster(client: PoolClient): Promise<void> {
+  await client.query("SELECT pg_advisory_xact_lock($1::integer, $2::integer)", [
+    ...ACTIVE_ADMIN_LOCK_KEYS,
+  ]);
 }
 
 async function writeProfileUpdate(
@@ -460,6 +467,7 @@ export async function authorizeProfileUpdate(
 
 export async function updateProfile(id: string, patch: Record<string, unknown>) {
   const row = { ...patch };
+  if ("role" in row) throw new Error("Role changes must use updateUserRole");
   if (typeof row["email"] === "string" && row["email"]) {
     row["email"] = (row["email"] as string).trim().toLowerCase();
   }
@@ -500,27 +508,33 @@ export async function updateTeacherSettings(teacherId: string, patch: Record<str
 
 export async function deleteUser(adminId: string, id: string) {
   if (adminId === id) throw new Error("You can't remove your own account");
-  const target = await unwrap<{ id: string; role: ProfileRole; full_name: string } | null>(
-    db
-      .from("profiles")
-      .select("id, role, full_name")
-      .eq("id", id)
-      .is("deleted_at", null)
-      .maybeSingle(),
-  );
-  if (!target) throw new Error("User not found");
-  if (target.role === "admin") {
-    const admins = await unwrap<Array<{ id: string }>>(
-      db.from("profiles").select("id").eq("role", "admin").is("deleted_at", null),
-    );
-    if (admins.length <= 1) throw new Error("You can't remove the last remaining admin");
-  }
   const stamp = new Date().toISOString();
   const tombstone = (value: unknown) =>
     typeof value === "string" && value && !value.startsWith("deleted:")
       ? `deleted:${stamp}:${value}`.slice(0, 300)
       : (value ?? null);
   return withTransaction(async (client) => {
+    await lockActiveAdminRoster(client);
+    const target = await client.query<{ role: ProfileRole }>(
+      `SELECT role
+         FROM public.profiles
+        WHERE id = $1 AND deleted_at IS NULL
+        FOR UPDATE`,
+      [id],
+    );
+    const targetRole = target.rows[0]?.role;
+    if (!targetRole) throw new Error("User not found");
+    if (targetRole === "admin") {
+      const admins = await client.query<{ id: string }>(
+        `SELECT id
+           FROM public.profiles
+          WHERE role = 'admin' AND deleted_at IS NULL
+          FOR UPDATE`,
+      );
+      if (admins.rows.length <= 1) {
+        throw new Error("You can't remove the last remaining admin");
+      }
+    }
     const cleared = await client.query<{ id: string }>(
       "UPDATE public.courses SET teacher_id = NULL WHERE teacher_id = $1 RETURNING id",
       [id],
@@ -685,17 +699,30 @@ export async function updateUserRole(
   role: "student" | "teacher" | "admin",
 ) {
   if (adminId === id) throw new Error("You can't change your own role");
-  const target = await getProfileById(id);
-  if (!target) throw new Error("User not found");
-  if (target.role === "admin" && role !== "admin") {
-    const admins = await unwrap<Array<{ id: string }>>(
-      db.from("profiles").select("id").eq("role", "admin").is("deleted_at", null),
-    );
-    if (admins.length <= 1) throw new Error("You can't demote the last remaining admin");
-  }
   return withTransaction(async (client) => {
+    await lockActiveAdminRoster(client);
+    const target = await client.query<{ role: ProfileRole }>(
+      `SELECT role
+         FROM public.profiles
+        WHERE id = $1 AND deleted_at IS NULL
+        FOR UPDATE`,
+      [id],
+    );
+    const targetRole = target.rows[0]?.role;
+    if (!targetRole) throw new Error("User not found");
+    if (targetRole === "admin" && role !== "admin") {
+      const admins = await client.query<{ id: string }>(
+        `SELECT id
+           FROM public.profiles
+          WHERE role = 'admin' AND deleted_at IS NULL
+          FOR UPDATE`,
+      );
+      if (admins.rows.length <= 1) {
+        throw new Error("You can't demote the last remaining admin");
+      }
+    }
     let unassignedCourses = 0;
-    if (role === "student" && target.role !== "student") {
+    if (role === "student" && targetRole !== "student") {
       const cleared = await client.query<{ id: string }>(
         "UPDATE public.courses SET teacher_id = NULL WHERE teacher_id = $1 RETURNING id",
         [id],

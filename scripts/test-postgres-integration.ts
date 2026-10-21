@@ -83,7 +83,7 @@ async function main(): Promise<void> {
       run(process.execPath, ["run", "db:migrate"], { env: testEnv }),
     ]);
     await run(process.execPath, ["run", "db:migrate"], { env: testEnv });
-    await run(process.execPath, ["test", "tests/integration/"], { env: testEnv });
+    await run(process.execPath, ["test", "--parallel=1", "tests/integration/"], { env: testEnv });
   } catch (error) {
     failure = error;
   } finally {

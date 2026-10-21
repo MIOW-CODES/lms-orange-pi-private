@@ -20,6 +20,7 @@ const app = new Pool({ connectionString: databaseUrl, max: 3 });
 const migrator = new Pool({ connectionString: migratorUrl, max: 1 });
 const originalSessionSecret = process.env["SESSION_SECRET"];
 const profileIds: string[] = [];
+const priorAdminIds: string[] = [];
 const authKeys: string[] = [];
 let failureTriggerName: string | undefined;
 let failureFunctionName: string | undefined;
@@ -56,6 +57,12 @@ afterAll(async () => {
       await migrator.query(
         "DELETE FROM public.auth_rate_limits WHERE bucket_key = ANY($1::text[])",
         [hashedKeys],
+      );
+    }
+    if (priorAdminIds.length > 0) {
+      await migrator.query(
+        "UPDATE public.profiles SET role = 'admin' WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL",
+        [priorAdminIds],
       );
     }
     if (profileIds.length > 0) {
@@ -151,6 +158,45 @@ it("commits role changes with revocation of every existing session", async () =>
   expect(result.profile.role).toBe("teacher");
   expect(result.unassignedCourses).toBe(0);
   await expect(requireSession(token, { allowTemporaryPin: true })).rejects.toThrow("Unauthorized");
+});
+
+it("serializes concurrent admin demotion and deletion so an administrator remains", async () => {
+  const existingAdmins = await migrator.query<{
+    id: string;
+    email: string | null;
+    student_id: string | null;
+  }>(
+    `SELECT id, email, student_id
+       FROM public.profiles
+      WHERE role = 'admin' AND deleted_at IS NULL`,
+  );
+  const unexpectedAdmin = existingAdmins.rows.some(
+    (row) =>
+      row.email !== "admin@example.test" && !row.student_id?.startsWith("synthetic-pin-rotation-"),
+  );
+  if (unexpectedAdmin) {
+    throw new Error("Refusing to modify non-synthetic administrators in the integration database");
+  }
+  priorAdminIds.push(...existingAdmins.rows.map((row) => row.id));
+  if (priorAdminIds.length > 0) {
+    await migrator.query("UPDATE public.profiles SET role = 'teacher' WHERE id = ANY($1::uuid[])", [
+      priorAdminIds,
+    ]);
+  }
+
+  const firstAdmin = await createSyntheticAccount("admin");
+  const secondAdmin = await createSyntheticAccount("admin");
+  const outcomes = await Promise.allSettled([
+    deleteUser(firstAdmin.id, secondAdmin.id),
+    updateUserRole(secondAdmin.id, firstAdmin.id, "teacher"),
+  ]);
+
+  expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+  expect(outcomes.filter((outcome) => outcome.status === "rejected")).toHaveLength(1);
+  const remainingAdmins = await migrator.query<{ count: string }>(
+    "SELECT count(*)::text AS count FROM public.profiles WHERE role = 'admin' AND deleted_at IS NULL",
+  );
+  expect(remainingAdmins.rows[0]?.count).toBe("1");
 });
 
 it("rolls back the PIN update when revoking stale sessions fails", async () => {
