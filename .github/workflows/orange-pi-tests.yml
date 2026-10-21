@@ -62,6 +62,9 @@ jobs:
           docker compose version >/dev/null
           bun --version
 
+      - name: Remove leftovers from interrupted PostgreSQL tests
+        run: sh scripts/cleanup-postgres-test.sh
+
       - name: Install locked dependencies without lifecycle scripts
         run: bun install --frozen-lockfile --ignore-scripts
 
@@ -82,3 +85,7 @@ jobs:
 
       - name: Build production bundle
         run: bun run build
+
+      - name: Clean disposable PostgreSQL resources
+        if: always()
+        run: sh scripts/cleanup-postgres-test.sh
