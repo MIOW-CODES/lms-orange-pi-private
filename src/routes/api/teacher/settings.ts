@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import * as server from "@/lib/server";
+import { readJsonBody } from "@/lib/server/read-json-body.server";
+
+const MAX_TEACHER_SETTINGS_BODY_BYTES = 32 * 1024;
 
 /**
  * PATCH /api/teacher/settings
@@ -14,12 +17,21 @@ export const Route = createFileRoute("/api/teacher/settings")({
   server: {
     handlers: {
       PATCH: async ({ request }) => {
-        let body: Record<string, unknown> = {};
-        try {
-          body = (await request.json()) as Record<string, unknown>;
-        } catch {
+        const parsedBody = await readJsonBody(request, MAX_TEACHER_SETTINGS_BODY_BYTES);
+        if (!parsedBody.ok) {
+          if (parsedBody.reason === "too_large") {
+            return Response.json({ error: "Request body too large" }, { status: 413 });
+          }
           return Response.json({ error: "Invalid JSON body" }, { status: 400 });
         }
+        if (
+          parsedBody.value === null ||
+          typeof parsedBody.value !== "object" ||
+          Array.isArray(parsedBody.value)
+        ) {
+          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+        }
+        const body = parsedBody.value as Record<string, unknown>;
         const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
         const token =
           bearer || (typeof body["token"] === "string" ? (body["token"] as string) : "");
