@@ -8,6 +8,8 @@ import { schemas } from "./schemas.server";
 import {
   calculateRecord,
   emptyRecord,
+  indexRecordSources,
+  recordSourceKey,
   scaleForCourse,
   type RecordSource,
   type RecordSnapshot,
@@ -116,6 +118,14 @@ export async function saveClassRecord(input: z.infer<typeof schemas.classRecordS
   const data = await recordData(input.courseId, input.quarter, input.token);
   const members = new Set(data.enrolled);
   const draft = input.draft;
+  const sourceIndex = indexRecordSources(data.sources);
+  const columnsById = new Map<
+    (typeof draft.columns)[number]["id"],
+    (typeof draft.columns)[number]
+  >();
+  for (const column of draft.columns) {
+    if (!columnsById.has(column.id)) columnsById.set(column.id, column);
+  }
   for (const id of [
     ...Object.keys(draft.scores),
     ...Object.keys(draft.attendance),
@@ -126,15 +136,12 @@ export async function saveClassRecord(input: z.infer<typeof schemas.classRecordS
       throw new Error("A student is no longer enrolled. Reload the roster before saving.");
   }
   for (const col of draft.columns) {
-    if (
-      col.source &&
-      !data.sources.some((s) => s.id === col.source!.id && s.kind === col.source!.kind)
-    )
+    if (col.source && !sourceIndex.has(recordSourceKey(col.source.kind, col.source.id)))
       throw new Error(`Assessment unavailable: ${col.title}. Remove or replace its mapping.`);
   }
   for (const scores of Object.values(draft.scores))
     for (const [columnId, score] of Object.entries(scores)) {
-      const col = draft.columns.find((c) => c.id === columnId);
+      const col = columnsById.get(columnId);
       if (!col || score.value > col.maximum)
         throw new Error("A score is outside its assessment's maximum.");
       if (col.source && !score.reason?.trim())
@@ -163,7 +170,7 @@ export async function saveClassRecord(input: z.infer<typeof schemas.classRecordS
     });
   }
   const publications = [...new Set(input.publishIds)].map((student_id) => {
-    const result = calculateRecord(draft, data.sources, student_id, data.scale);
+    const result = calculateRecord(draft, data.sources, student_id, data.scale, sourceIndex);
     if (!result.complete)
       throw new Error(
         `Cannot publish incomplete scores: ${result.missing.join(", ")}. Enter missing scores or explicit zeros.`,

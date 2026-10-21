@@ -6,10 +6,13 @@ import { toast } from "sonner";
 import { getClassRecord, saveClassRecord, termLabel, type Profile } from "@/lib/lms";
 import {
   calculateRecord,
+  indexRecordSources,
+  recordSourceKey,
   recordCell,
   type RecordCategory,
   type RecordDraft,
   type RecordSource,
+  type RecordSourceIndex,
   type RecordScale,
   type SessionStatus,
 } from "@/lib/class-record";
@@ -162,13 +165,17 @@ function RecordEditor({
       ),
     [draft.columns],
   );
+  const sourceIndex = useMemo(() => indexRecordSources(sources), [sources]);
   const results = visibleRoster.map((student) => ({
     student,
-    result: calculateRecord(draft, sources, student.id, scale),
+    result: calculateRecord(draft, sources, student.id, scale, sourceIndex),
   }));
-  const available = sources.filter(
-    (s) => !draft.columns.some((c) => c.source?.id === s.id && c.source.kind === s.kind),
+  const mappedSourceKeys = new Set(
+    draft.columns.flatMap((column) =>
+      column.source ? [recordSourceKey(column.source.kind, column.source.id)] : [],
+    ),
   );
+  const available = sources.filter((s) => !mappedSourceKeys.has(recordSourceKey(s.kind, s.id)));
   const addColumn = () => {
     const source = available.find((s) => `${s.kind}:${s.id}` === sourceKey);
     const max = Number(source?.maximum ?? maximum);
@@ -844,6 +851,7 @@ function RecordEditor({
                     columns={columns}
                     draft={draft}
                     sources={sources}
+                    sourceIndex={sourceIndex}
                     student={s}
                     editable={editable && !busy}
                     onChange={(id, value) =>
@@ -959,6 +967,7 @@ function CategoryCells({
   columns,
   draft,
   sources,
+  sourceIndex,
   student,
   editable,
   onChange,
@@ -967,6 +976,7 @@ function CategoryCells({
   columns: RecordDraft["columns"];
   draft: RecordDraft;
   sources: RecordSource[];
+  sourceIndex: RecordSourceIndex;
   student: Profile;
   editable: boolean;
   onChange: (id: string, value: number | null) => void;
@@ -976,7 +986,7 @@ function CategoryCells({
   return (
     <>
       {cols.map((c) => {
-        const value = recordCell(draft, sources, student.id, c);
+        const value = recordCell(draft, sources, student.id, c, sourceIndex);
         total += value ?? 0;
         return (
           <td key={c.id} className="p-2 text-center">

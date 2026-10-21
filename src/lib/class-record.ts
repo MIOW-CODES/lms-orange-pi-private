@@ -36,6 +36,19 @@ export interface RecordSource {
   maximum: number;
   scores: Record<string, { score: number; total: number }>;
 }
+export type RecordSourceIndex = ReadonlyMap<string, RecordSource>;
+export function recordSourceKey(kind: RecordSource["kind"], id: string) {
+  return `${kind}:${id}`;
+}
+export function indexRecordSources(sources: readonly RecordSource[]): RecordSourceIndex {
+  const index = new Map<string, RecordSource>();
+  for (const source of sources) {
+    const key = recordSourceKey(source.kind, source.id);
+    // Preserve Array.find's existing first-match behavior if corrupt input repeats a source.
+    if (!index.has(key)) index.set(key, source);
+  }
+  return index;
+}
 export interface RecordSnapshot {
   version: 1;
   scale: RecordScale;
@@ -109,11 +122,14 @@ export function recordCell(
   sources: RecordSource[],
   studentId: string,
   col: RecordColumn,
+  sourceIndex?: RecordSourceIndex,
 ): number | null {
   const manual = draft.scores[studentId]?.[col.id];
   if (manual) return manual.value;
   if (!col.source) return null;
-  const source = sources.find((s) => s.id === col.source!.id && s.kind === col.source!.kind);
+  const source = (sourceIndex ?? indexRecordSources(sources)).get(
+    recordSourceKey(col.source.kind, col.source.id),
+  );
   const value = source?.scores[studentId];
   // Normalize each student's actual attempt denominator, never a classmate's total.
   return value &&
@@ -146,6 +162,7 @@ export function calculateRecord(
   sources: RecordSource[],
   studentId: string,
   scale: RecordScale,
+  sourceIndex: RecordSourceIndex = indexRecordSources(sources),
 ) {
   const missing: string[] = [];
   const attendance = recordAttendance(draft, studentId);
@@ -167,7 +184,7 @@ export function calculateRecord(
             : "Performance Tasks",
       );
     for (const col of cols) {
-      const score = recordCell(draft, sources, studentId, col);
+      const score = recordCell(draft, sources, studentId, col, sourceIndex);
       if (score == null) missing.push(col.title);
       else earned += score;
     }

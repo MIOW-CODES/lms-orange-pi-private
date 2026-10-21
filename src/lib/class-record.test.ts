@@ -4,6 +4,7 @@ import {
   collegeGrade,
   depedGrade,
   emptyRecord,
+  indexRecordSources,
   recordAttendance,
   recordCell,
   scaleForCourse,
@@ -67,6 +68,45 @@ describe("class record arithmetic", () => {
     expect(recordCell(d, sources, sid, q)).toBe(18);
     d.scores[sid] = { [q.id]: { value: 0, reason: "Missed work" } };
     expect(recordCell(d, sources, sid, q)).toBe(0);
+  });
+  it("indexes sources by kind and id while preserving the first matching source", () => {
+    const d = fixture();
+    const id = crypto.randomUUID();
+    const quiz = d.columns[0]!;
+    const assignment = d.columns[1]!;
+    quiz.source = { kind: "quiz", id };
+    assignment.source = { kind: "assignment", id };
+    const sources = [
+      {
+        id,
+        kind: "quiz" as const,
+        title: "Quiz first",
+        maximum: 20,
+        scores: { [sid]: { score: 9, total: 10 } },
+      },
+      {
+        id,
+        kind: "quiz" as const,
+        title: "Quiz duplicate",
+        maximum: 20,
+        scores: { [sid]: { score: 1, total: 10 } },
+      },
+      {
+        id,
+        kind: "assignment" as const,
+        title: "Assignment",
+        maximum: 80,
+        scores: { [sid]: { score: 4, total: 5 } },
+      },
+    ];
+    const sourceIndex = indexRecordSources(sources);
+
+    expect(recordCell(d, sources, sid, quiz, sourceIndex)).toBe(18);
+    expect(recordCell(d, sources, sid, assignment, sourceIndex)).toBe(64);
+    expect(recordCell(d, sources, sid, quiz)).toBe(18);
+    expect(calculateRecord(d, sources, sid, "deped", sourceIndex)).toEqual(
+      calculateRecord(d, sources, sid, "deped"),
+    );
   });
   it("does not divide by zero on an invalid automatic score", () => {
     const d = fixture();

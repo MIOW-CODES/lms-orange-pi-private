@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import {
   calculateRecord,
+  indexRecordSources,
   recordCell,
   type RecordDraft,
   type RecordSource,
@@ -25,6 +26,7 @@ export function recordSheetRows(
   roster: RecordStudent[],
   scale: RecordScale,
 ) {
+  const sourceIndex = indexRecordSources(sources);
   const columns = [...draft.columns].sort(
     (a, b) => ["ww", "ex", "pt"].indexOf(a.category) - ["ww", "ex", "pt"].indexOf(b.category),
   );
@@ -61,11 +63,11 @@ export function recordSheetRows(
   );
   maximum.push(10, 20, 30, 40, 100, "", "", "");
   const rows: (number | string)[][] = roster.map((s) => {
-    const r = calculateRecord(draft, sources, s.id, scale);
+    const r = calculateRecord(draft, sources, s.id, scale, sourceIndex);
     const values: (number | string)[] = [s.student_id ?? "", s.full_name, r.attendance ?? ""];
     for (const cat of ["ww", "ex", "pt"] as const) {
       for (const c of columns.filter((c) => c.category === cat))
-        values.push(recordCell(draft, sources, s.id, c) ?? "");
+        values.push(recordCell(draft, sources, s.id, c, sourceIndex) ?? "");
       values.push(r.categories[cat].earned);
     }
     values.push(

@@ -19,6 +19,7 @@
     "test:watch": "bun test --watch src/",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "benchmark:class-record": "bun run scripts/benchmark-class-record.mts",
     "load-test": "bun run scripts/load-test.mts",
     "ci": "bun run typecheck && bun run lint && bun run test:e2e",
     "db:up": "docker compose up -d postgres",
