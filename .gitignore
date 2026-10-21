@@ -51,9 +51,6 @@ pgdata/
 # Hermes
 .hermes/
 
-# Supabase CLI scratch state
-supabase/.temp/
-
 # Heap snapshots
 *.heapsnapshot
 .vercel
