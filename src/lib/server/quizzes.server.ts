@@ -1456,50 +1456,50 @@ export async function reviewAttemptQuestion(input: z.infer<typeof schemas.questi
     `Attempt ${input.attemptId} · question ${input.questionId} · ${input.expected} → ${input.correct} · ${input.reason}`,
   );
 }
-export async function previewIdentificationRegrade(
-  input: z.infer<typeof schemas.regradeIdentification>,
-) {
-  await requireQuizOwnerOrAdmin(input.token, input.quizId);
-  const [questions, attempts] = await Promise.all([
-    unwrap<Array<{ id: string; correct_answer: string; options: string[] }>>(
-      db.from("quiz_questions").select("id,correct_answer,options").eq("quiz_id", input.quizId),
-    ),
-    unwrap<
-      Array<{
-        id: string;
-        student_id: string;
-        attempt_number: number;
-        results: ScoredResult[];
-        score: number;
-        total: number;
-      }>
-    >(
-      db
-        .from("quiz_attempts")
-        .select("id,student_id,attempt_number,results,score,total")
-        .eq("quiz_id", input.quizId),
-    ),
-  ]);
-  // Previously reviewed answers require a new explicit academic judgment.
-  const reviewed = attempts.length
-    ? await unwrap<Array<{ attempt_id: string; question_id: string }>>(
-        db
-          .from("quiz_question_reviews")
-          .select("attempt_id,question_id")
-          .in(
-            "attempt_id",
-            attempts.map((a) => a.id),
-          ),
-      )
-    : [];
-  const people = attempts.length
-    ? await unwrap<Array<{ id: string; full_name: string }>>(
-        db
-          .from("profiles")
-          .select("id,full_name")
-          .in("id", [...new Set(attempts.map((a) => a.student_id))]),
-      )
-    : [];
+type IdentificationRegradeQuestion = { id: string; correct_answer: string; options: string[] };
+type IdentificationRegradeAttempt = {
+  id: string;
+  student_id: string;
+  attempt_number: number;
+  results: ScoredResult[] | null;
+  score: number;
+  total: number;
+};
+type IdentificationRegradeReview = { attempt_id: string; question_id: string };
+type IdentificationRegradePerson = { id: string; full_name: string };
+type IdentificationRegradeProposal = {
+  attemptId: string;
+  questionId: string;
+  studentId: string;
+  studentName: string;
+  attemptNumber: number;
+  answer: string;
+  key: string;
+  before: number;
+  after: number;
+};
+
+function identificationReviewKey(attemptId: string, questionId: string) {
+  return `${attemptId}:${questionId}`;
+}
+
+export function buildIdentificationRegradeProposals(
+  questions: IdentificationRegradeQuestion[],
+  attempts: IdentificationRegradeAttempt[],
+  reviewed: IdentificationRegradeReview[],
+  people: IdentificationRegradePerson[],
+): IdentificationRegradeProposal[] {
+  const questionsById = new Map<string, IdentificationRegradeQuestion>();
+  for (const question of questions) {
+    if (!questionsById.has(question.id)) questionsById.set(question.id, question);
+  }
+  const reviewedAnswers = new Set(
+    reviewed.map((review) => identificationReviewKey(review.attempt_id, review.question_id)),
+  );
+  const peopleById = new Map<string, IdentificationRegradePerson>();
+  for (const person of people) {
+    if (!peopleById.has(person.id)) peopleById.set(person.id, person);
+  }
   const proposals: Array<{
     attemptId: string;
     questionId: string;
@@ -1513,22 +1513,21 @@ export async function previewIdentificationRegrade(
   }> = [];
   for (const attempt of attempts)
     for (const r of attempt.results ?? []) {
-      const question = questions.find((q) => q.id === r.id);
+      const question = questionsById.get(r.id);
       if (
         !r.correct &&
         r.chosen &&
         question &&
         question.options.length === 0 &&
         !question.correct_answer.startsWith("Rubric:") &&
-        !reviewed.some((v) => v.attempt_id === attempt.id && v.question_id === r.id) &&
+        !reviewedAnswers.has(identificationReviewKey(attempt.id, r.id)) &&
         matchesIdentification(r.chosen, question.correct_answer)
       ) {
         proposals.push({
           attemptId: attempt.id,
           questionId: r.id,
           studentId: attempt.student_id,
-          studentName:
-            people.find((p) => p.id === attempt.student_id)?.full_name ?? "Unknown student",
+          studentName: peopleById.get(attempt.student_id)?.full_name ?? "Unknown student",
           attemptNumber: attempt.attempt_number,
           answer: r.chosen,
           key: question.correct_answer,
@@ -1538,4 +1537,42 @@ export async function previewIdentificationRegrade(
       }
     }
   return proposals;
+}
+
+export async function previewIdentificationRegrade(
+  input: z.infer<typeof schemas.regradeIdentification>,
+) {
+  await requireQuizOwnerOrAdmin(input.token, input.quizId);
+  const [questions, attempts] = await Promise.all([
+    unwrap<IdentificationRegradeQuestion[]>(
+      db.from("quiz_questions").select("id,correct_answer,options").eq("quiz_id", input.quizId),
+    ),
+    unwrap<IdentificationRegradeAttempt[]>(
+      db
+        .from("quiz_attempts")
+        .select("id,student_id,attempt_number,results,score,total")
+        .eq("quiz_id", input.quizId),
+    ),
+  ]);
+  // Previously reviewed answers require a new explicit academic judgment.
+  const reviewed = attempts.length
+    ? await unwrap<IdentificationRegradeReview[]>(
+        db
+          .from("quiz_question_reviews")
+          .select("attempt_id,question_id")
+          .in(
+            "attempt_id",
+            attempts.map((a) => a.id),
+          ),
+      )
+    : [];
+  const people = attempts.length
+    ? await unwrap<IdentificationRegradePerson[]>(
+        db
+          .from("profiles")
+          .select("id,full_name")
+          .in("id", [...new Set(attempts.map((a) => a.student_id))]),
+      )
+    : [];
+  return buildIdentificationRegradeProposals(questions, attempts, reviewed, people);
 }

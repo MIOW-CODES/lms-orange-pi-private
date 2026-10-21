@@ -9,6 +9,7 @@ import {
   gateAttemptResults,
   randomizeQuestions,
   attemptCeiling,
+  buildIdentificationRegradeProposals,
 } from "./quizzes.server";
 
 describe("teacher-approved retakes", () => {
@@ -662,5 +663,92 @@ describe("highest retake calculation", () => {
     expect(effectiveScore(attempts, "highest_score")).toEqual({ score: 9, total: 10 });
     expect(effectiveScore(attempts, "latest_attempt")).toEqual({ score: 5, total: 10 });
     expect(effectiveScore([], "highest_score")).toBe(null);
+  });
+});
+
+describe("identification regrade proposals", () => {
+  it("preserves order and filters reviewed, rubric, and choice answers using indexed data", () => {
+    const questions = [
+      { id: "q-digital", correct_answer: "digitalRead||digitalRead()", options: [] },
+      { id: "q-reviewed", correct_answer: "light||light-emitting diode", options: [] },
+      { id: "q-rubric", correct_answer: "Rubric: explain the design", options: [] },
+      { id: "q-choice", correct_answer: "A", options: ["A", "B"] },
+    ];
+    const result = (id: string, chosen: string) => ({
+      id,
+      question: "Synthetic question",
+      options: [],
+      chosen,
+      correct_answer: "legacy answer",
+      correct: false,
+    });
+    const proposals = buildIdentificationRegradeProposals(
+      questions,
+      [
+        {
+          id: "attempt-reviewed",
+          student_id: "student-reviewed",
+          attempt_number: 1,
+          results: [
+            result("q-reviewed", "light-emitting diode"),
+            result("q-rubric", "design explanation"),
+            result("q-choice", "A"),
+          ],
+          score: 8,
+          total: 10,
+        },
+        {
+          id: "attempt-first",
+          student_id: "student-missing",
+          attempt_number: 2,
+          results: [result("q-digital", "ＤｉｇｉｔａｌRead()")],
+          score: 9,
+          total: 10,
+        },
+        {
+          id: "attempt-second",
+          student_id: "student-known",
+          attempt_number: 1,
+          results: [result("q-digital", "digitalRead()")],
+          score: 10,
+          total: 10,
+        },
+        {
+          id: "attempt-empty",
+          student_id: "student-missing",
+          attempt_number: 3,
+          results: null,
+          score: 0,
+          total: 10,
+        },
+      ],
+      [{ attempt_id: "attempt-reviewed", question_id: "q-reviewed" }],
+      [{ id: "student-known", full_name: "Synthetic Learner" }],
+    );
+
+    expect(proposals).toEqual([
+      {
+        attemptId: "attempt-first",
+        questionId: "q-digital",
+        studentId: "student-missing",
+        studentName: "Unknown student",
+        attemptNumber: 2,
+        answer: "ＤｉｇｉｔａｌRead()",
+        key: "digitalRead||digitalRead()",
+        before: 9,
+        after: 10,
+      },
+      {
+        attemptId: "attempt-second",
+        questionId: "q-digital",
+        studentId: "student-known",
+        studentName: "Synthetic Learner",
+        attemptNumber: 1,
+        answer: "digitalRead()",
+        key: "digitalRead||digitalRead()",
+        before: 10,
+        after: 10,
+      },
+    ]);
   });
 });
