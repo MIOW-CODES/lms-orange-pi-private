@@ -10,7 +10,11 @@ import {
   scaleForCourse,
   type RecordDraft,
 } from "./class-record";
-import { previewRecordImport, recordSheetRows } from "./class-record-spreadsheet";
+import {
+  createRecordWorkbook,
+  previewRecordImport,
+  recordSheetRows,
+} from "./class-record-spreadsheet";
 import { matchesIdentification, matchesOption } from "./answer-matching";
 import * as XLSX from "xlsx";
 const sid = "11111111-1111-4111-8111-111111111111";
@@ -176,9 +180,16 @@ describe("class-record spreadsheets", () => {
   it("round-trips exported assessment scores and maxima without importing computed totals", () => {
     const d = full();
     const rows = recordSheetRows(d, [], [student], "deped").rows;
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Record");
-    const result = previewRecordImport(wb, "Record", emptyRecord(), [student], "record.xlsx");
+    const wb = createRecordWorkbook(rows);
+    const exported = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const imported = XLSX.read(exported, { type: "array" });
+    const result = previewRecordImport(
+      imported,
+      "Class Record",
+      emptyRecord(),
+      [student],
+      "record.xlsx",
+    );
     expect(result.errors).toEqual([]);
     expect(result.matched).toBe(1);
     expect(result.draft.columns).toHaveLength(4);

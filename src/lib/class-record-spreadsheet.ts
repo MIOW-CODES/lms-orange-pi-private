@@ -84,6 +84,19 @@ export function recordSheetRows(
   });
   return { rows: [groups, header, maximum, ...rows], columns };
 }
+
+export function createRecordWorkbook(rows: (number | string)[][]): XLSX.WorkBook {
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  worksheet["!cols"] = [
+    { wch: 18 },
+    { wch: 32 },
+    ...Array.from({ length: (rows[1]?.length ?? 3) - 2 }, () => ({ wch: 18 })),
+  ];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Class Record");
+  return workbook;
+}
+
 export interface RecordImportPreview {
   draft: RecordDraft;
   errors: string[];

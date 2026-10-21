@@ -17,6 +17,7 @@ import {
   type SessionStatus,
 } from "@/lib/class-record";
 import {
+  createRecordWorkbook,
   previewRecordImport,
   recordSheetRows,
   type RecordImportPreview,
@@ -228,18 +229,13 @@ function RecordEditor({
     const rows = blank
       ? [...data.rows, ...visibleRoster.map((s) => [s.student_id ?? "", s.full_name])]
       : data.rows;
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [
-      { wch: 18 },
-      { wch: 32 },
-      ...Array.from({ length: (rows[1]?.length ?? 3) - 2 }, () => ({ wch: 18 })),
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Class Record");
+    const wb = createRecordWorkbook(rows);
     const filename = `${courseCode}-period-${quarter}${blank ? "-template" : "-class-record"}`;
     if (format === "csv")
       downloadCsv(
-        XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as (string | number)[][],
+        XLSX.utils.sheet_to_json(wb.Sheets["Class Record"]!, { header: 1, defval: "" }) as (
+          string | number
+        )[][],
         `${filename}.csv`,
       );
     else
